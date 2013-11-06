@@ -21,16 +21,28 @@ e.g.
     <th>Default</th>
   </tr>
   <tr>
+    <td><tt>['cloudstack']['url']</tt></td>
+    <td>String</td>
+    <td>The cloudstack API url</td>
+    <td><tt></tt></td>
+  </tr>
+  <tr>
+    <td><tt>['cloudstack']['APIkey']</tt></td>
+    <td>String</td>
+    <td>The cloudstack API key</td>
+    <td><tt></tt></td>
+  </tr>
+  <tr>
+    <td><tt>['cloudstack']['SECkey']</tt></td>
+    <td>String</td>
+    <td>The cloudstack Secret key</td>
+    <td><tt></tt></td>
+  </tr>
+  <tr>
     <td><tt>['cloudstack']['firewall']</tt></td>
     <td>Object</td>
     <td>Contains firewall config</td>
     <td><tt></tt></td>
-  </tr>
-  <tr>
-    <td><tt>['cloudstack']['firewall']['manage']</tt></td>
-    <td>Boolean</td>
-    <td>Indicates if this host enforces the firewall rules in cloudstack</td>
-    <td><tt>False</tt></td>
   </tr>
   <tr>
     <td><tt>['cloudstack']['firewall']['cleanup']</tt></td>
@@ -39,7 +51,7 @@ e.g.
     <td><tt>False</tt></td>
   </tr>
   <tr>
-    <td><tt>['cloudstack']['firewall']['ingress'][<ip address>]</tt></td>
+    <td><tt>['cloudstack']['firewall']['ingress'][&lt;ip address&gt;]</tt></td>
     <td>Array</td>
     <td>This array holds the actual firewall and portnat rules
     Each of the rules is specified in the following format:
@@ -47,9 +59,9 @@ e.g.
       <tr>
         <td>Protocol (TCP|UDP)</td>
         <td>CIDR block</td>
-        <td>Start port external</td>
-        <td>End port external</td>
-        <td>Start port internal<td>
+        <td>Start port public</td>
+        <td>End port public</td>
+        <td>Start port private<td>
       </tr>
     </table>
     E.g. to specify that external TCP port 80 and 81 have to be allowed publicly and forwarded to port 8080 and 80 specify:
