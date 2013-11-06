@@ -41,7 +41,7 @@ e.g.
   <tr>
     <td><tt>['cloudstack']['firewall']['ingress'][<ip address>]</tt></td>
     <td>Array</td>
-    <td><tt>This array holds the actual firewall and portnat rules
+    <td>This array holds the actual firewall and portnat rules
     Each of the rules is specified in the following format:
     <table>
       <tr>
@@ -54,7 +54,8 @@ e.g.
     </table>
     E.g. to specify that external TCP port 80 and 81 have to be allowed publicly and forwarded to port 8080 and 80 specify:
     [ [ "TCP", "0.0.0.0/0", "80", "81", "8080" ] ]
-    </tt></td>
+    </td>
+    <td><tt>Empty</tt></td>
   </tr>
 </table>
 
