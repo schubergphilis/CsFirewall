@@ -51,21 +51,22 @@ e.g.
     <td><tt>False</tt></td>
   </tr>
   <tr>
-    <td><tt>['cloudstack']['firewall']['ingress'][&lt;ip address&gt;]</tt></td>
+    <td><tt>['cloudstack']['firewall']['ingress']</tt></td>
     <td>Array</td>
     <td>This array holds the actual firewall and portnat rules
     Each of the rules is specified in the following format:
     <table>
       <tr>
-        <td>Protocol (TCP|UDP)</td>
+        <td>IP address</td>
+        <td>Protocol (tcp|udp)</td>
         <td>CIDR block</td>
         <td>Start port public</td>
         <td>End port public</td>
         <td>Start port private<td>
       </tr>
     </table>
-    E.g. to specify that external TCP port 80 and 81 have to be allowed publicly and forwarded to port 8080 and 80 specify:
-    [ [ "TCP", "0.0.0.0/0", "80", "81", "8080" ] ]
+    E.g. to specify that external TCP port 80 and 81 on ip 1.2.3.4 have to be allowed publicly and forwarded to port 8080 and 8081 specify:
+    [ [ "1.2.3.4", "tcp", "0.0.0.0/0", "80", "81", "8080" ] ]
     </td>
     <td><tt>Empty</tt></td>
   </tr>
