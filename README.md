@@ -21,10 +21,40 @@ e.g.
     <th>Default</th>
   </tr>
   <tr>
-    <td><tt>['CsFirewall']['bacon']</tt></td>
+    <td><tt>['cloudstack']['firewall']</tt></td>
+    <td>Object</td>
+    <td>Contains firewall config</td>
+    <td><tt></tt></td>
+  </tr>
+  <tr>
+    <td><tt>['cloudstack']['firewall']['manage']</tt></td>
     <td>Boolean</td>
-    <td>whether to include bacon</td>
-    <td><tt>true</tt></td>
+    <td>Indicates if this host enforces the firewall rules in cloudstack</td>
+    <td><tt>False</tt></td>
+  </tr>
+  <tr>
+    <td><tt>['cloudstack']['firewall']['cleanup']</tt></td>
+    <td>Boolean</td>
+    <td>Should rules not matching node attributes be cleaned up?</td>
+    <td><tt>False</tt></td>
+  </tr>
+  <tr>
+    <td><tt>['cloudstack']['firewall']['ingress'][<ip address>]</tt></td>
+    <td>Array</td>
+    <td><tt>This array holds the actual firewall and portnat rules
+    Each of the rules is specified in the following format:
+    <table>
+      <tr>
+        <td>Protocol (TCP|UDP)</td>
+        <td>CIDR block</td>
+        <td>Start port external</td>
+        <td>End port external</td>
+        <td>Start port internal<td>
+      </tr>
+    </table>
+    E.g. to specify that external TCP port 80 and 81 have to be allowed publicly and forwarded to port 8080 and 80 specify:
+    [ [ "TCP", "0.0.0.0/0", "80", "81", "8080" ] ]
+    </tt></td>
   </tr>
 </table>
 
