@@ -75,9 +75,8 @@ e.g.
 Usage
 -----
 #### CsFirewall::default
-TODO: Write usage instructions for each cookbook.
+This recipe does nothing, but tells the Firewall manager to read this hosts attributes for firewall input
 
-e.g.
 Just include `CsFirewall` in your node's `run_list`:
 
 ```json
@@ -86,6 +85,47 @@ Just include `CsFirewall` in your node's `run_list`:
   "run_list": [
     "recipe[CsFirewall]"
   ]
+}
+```
+
+And add rules to the normal attributes:
+```json
+{
+  "cloudstack" : {
+    "firewall" :{
+      "ingress" : [
+        [ "1.2.3.4", "tcp", "0.0.0.0/0", "80", "81", "8080" ]
+      ]
+    }
+  }
+}
+```
+
+#### CsFirewall::manager
+This recipe tells the node to manage the Cloud Stack firewall
+
+Just include `CsFirewall::manager` in your node's `run_list`:
+
+```json
+{
+  "name":"my_node",
+  "run_list": [
+    "recipe[CsFirewall::manager]"
+  ]
+}
+```
+
+And add rules to the normal attributes:
+```json
+{
+  "cloudstack" : {
+    "url" : "https://.../client/api",
+    "APIkey" : "qmFEFfAr3q-...",
+    "SECkey" : "ZOAXv1WLXRfFvxD-..",
+    "firewall" :{
+      "cleanup" : true
+    }
+  }
 }
 ```
 
