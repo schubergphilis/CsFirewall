@@ -115,7 +115,7 @@ Just include `CsFirewall::manager` in your node's `run_list`:
 }
 ```
 
-And add rules to the normal attributes:
+And add configuration attributes
 ```json
 {
   "cloudstack" : {

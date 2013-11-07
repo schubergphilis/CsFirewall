@@ -70,7 +70,7 @@ end
 
 # This should probably be a partial search, but I don't get the documentation 
 # for that feature
-nodes = search(:node, "cloudstack_firewall:*")
+nodes = search(:node, "cloudstack_firewall_ingress:*")
 
 fw_work = false
 pf_work = false
@@ -78,7 +78,7 @@ pf_work = false
 nodes.each do |n|
   unmanaged = n["cloudstack"]["firewall"]["unmanaged"]
   if ( unmanaged != "true" ) then
-    Chef::Log.info("Found firewall rules for host: #{n.name}")
+    Chef::Log.info("Found ingress firewall rules for host: #{n.name}")
     fw_work = true
     # Get all ingress rules
     n["cloudstack"]["firewall"]["ingress"].each do |fw|
@@ -180,11 +180,11 @@ if ( fw_work ) then
       # Do nothing
       Chef::Log.info("Keeping firewall rule: #{fwrule["cidrlist"]} -> #{fwrule["ipaddress"]}:#{fwrule["protocol"]} #{fwrule["startport"]}-#{fwrule["endport"]}")
     elsif node["cloudstack"]["firewall"]["cleanup"] == true then
-      Chef::Log.info("Deleting firewall rule: #{fwrule["cidrlist"]} -> #{fwrule["ipaddress"]}:#{fwrule["protocol"]} #{fwrule["startport"]}-#{fwrule["endport"]}")
+      Chef::Log.info("Deleting firewall rule: #{fwrule["cidrlist"]} -> #{fwrule["ipaddress"]}:#{fwrule["protocol"]} #{fwrule["startport"]}-#{fwrule["endport"]} (id: #{fwrule["id"]})")
       params = {
         :command => "deleteFirewallRule",
         :response => 'json',
-        :id => fwrule[:id]
+        :id => fwrule["id"]
       }
       json =csapi.get(params).body
       jobs.push JSON.parse(json)["deletefirewallruleresponse"]["jobid"]
@@ -218,11 +218,11 @@ if ( pf_work ) then
       # Do nothing
       Chef::Log.info("Keeping port forward rule: #{pfrule["protocol"]} #{pfrule["ipaddress"]}:#{pfrule["publicport"]}-#{pfrule["publicendport"]} -> #{pfrule["virtualmachinename"]}:#{pfrule["privateport"]}-#{pfrule["privateendport"]}")
     elsif node["cloudstack"]["firewall"]["cleanup"] == true then
-      Chef::Log.info("Deleting port forward rule: #{pfrule["protocol"]} #{pfrule["ipaddress"]}:#{pfrule["publicport"]}-#{pfrule["publicendport"]} -> #{pfrule["virtualmachinename"]}:#{pfrule["privateport"]}-#{pfrule["privateendport"]} (cleanup disabled")
+      Chef::Log.info("Deleting port forward rule: #{pfrule["protocol"]} #{pfrule["ipaddress"]}:#{pfrule["publicport"]}-#{pfrule["publicendport"]} -> #{pfrule["virtualmachinename"]}:#{pfrule["privateport"]}-#{pfrule["privateendport"]} (d: #{pfrule["id"]})")
       params = {
         :command => "deletePortForwardingRule",
         :response => 'json',
-        :id => pfrule[:id]
+        :id => pfrule["id"]
       }
       json =csapi.get(params).body
       jobs.push JSON.parse(json)["deleteportforwardingruleresponse"]["jobid"]
