@@ -1,11 +1,12 @@
 CsFirewall Cookbook
 ===================
-This cookbook forces a node to configure the firewall in cloudstack via the 
-knife command
+This cookbook enforces the firewall rules in cloudstack via a firewall 
+management node that interacts with the API
 
 Requirements
 ------------
-The knife command has to be installed and runnable as the root user
+The cloudstack_helper gem needs to be installed on the firewall management
+node to access the API
 
 Attributes
 ----------
