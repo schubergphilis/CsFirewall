@@ -24,19 +24,19 @@ e.g.
   <tr>
     <td><tt>['cloudstack']['url']</tt></td>
     <td>String</td>
-    <td>The cloudstack API url</td>
+    <td>The cloudstack API url. Only needed on the manager node.</td>
     <td><tt></tt></td>
   </tr>
   <tr>
     <td><tt>['cloudstack']['APIkey']</tt></td>
     <td>String</td>
-    <td>The cloudstack API key</td>
+    <td>The cloudstack API key. Only needed on the manager node.</td>
     <td><tt></tt></td>
   </tr>
   <tr>
     <td><tt>['cloudstack']['SECkey']</tt></td>
     <td>String</td>
-    <td>The cloudstack Secret key</td>
+    <td>The cloudstack Secret key. Only needed on the manager node.</td>
     <td><tt></tt></td>
   </tr>
   <tr>
@@ -75,7 +75,7 @@ e.g.
     <td><tt>Empty</tt></td>
   </tr>
   <tr>
-    <td><tt>['cloudstack']['firewall']['acl']</tt></td>
+    <td><tt>['cloudstack']['acl']</tt></td>
     <td>Array</td>
     <td>This array holds the actual network ACL rules for this node
     Each of the rules is specified in the following format:
