@@ -11,9 +11,7 @@
 
 Chef::Log.info("Start of CsFirewall::manager recipe")
 
-gem_package "cloudstack_helper" do
-  action :install
-end
+include_recipe "CsFirewall::prerequisites"
 
 require 'rubygems'
 require 'cloudstack_helper'
@@ -34,6 +32,7 @@ end
 # Get rules from cloudstack
 csapi = CloudStackHelper.new(:api_url => node['cloudstack']['url'],:api_key => node['cloudstack']['APIkey'],:secret_key => node['cloudstack']['SECkey'])
 
+# Port forward
 params = { 
   :command => "listPortForwardingRules",
   :response => 'json'
@@ -41,6 +40,7 @@ params = {
 json =csapi.get(params).body
 pfrules = JSON.parse(json)["listportforwardingrulesresponse"]["portforwardingrule"]
 
+# Firewall
 params = { 
   :command => "listFirewallRules",
   :response => 'json'
@@ -48,6 +48,32 @@ params = {
 json =csapi.get(params).body
 fwrules = JSON.parse(json)["listfirewallrulesresponse"]["firewallrule"]
 
+
+# Networks
+params = { 
+  :command => "listNetworks",
+  :response => 'json'
+}
+networks = Hash.new
+json =csapi.get(params).body
+JSON.parse(json)["listnetworksresponse"]["network"].each do |nw|
+	networks[nw["name"]]=nw
+end
+
+# ACLs
+params = { 
+  :command => "listNetworkACLs",
+  :response => 'json'
+}
+acls = Hash.new
+networks.each do |key, nw|
+	Chef::Log.info("Getting ACLs of network #{nw["name"]}")
+	params[:networkid] = nw["id"]
+	json =csapi.get(params).body
+	acls[nw["name"]] = JSON.parse(json)["listnetworkaclsresponse"]["networkacl"]
+end #networks
+
+# IPs
 params = { 
   :command => "listPublicIpAddresses",
   :response => 'json'
@@ -58,6 +84,7 @@ JSON.parse(json)["listpublicipaddressesresponse"]["publicipaddress"].each do |ip
   ips[ip["ipaddress"]] = ip["id"]
 end
 
+# Machines
 params = { 
   :command => "listVirtualMachines",
   :response => 'json'
@@ -156,8 +183,69 @@ nodes.each do |n|
   end # unmanage
 end #node
 
-jobs = Array.new
+# This should probably be a partial search, but I don't get the documentation 
+# for that feature
+nodes = search(:node, "cloudstack_acl:*")
 
+acl_work = Hash.new
+nodes.each do |n|
+	unmanaged = false
+	if ( n["cloudstack"]["firewall"] != nil ) then
+    unmanaged = n["cloudstack"]["firewall"]["unmanaged"]
+	end
+  if ( unmanaged != "true" ) then
+    Chef::Log.info("Found acls for host: #{n.name}")
+		# Get acls from node
+		n["cloudstack"]["acl"].each do |aclsoll|
+			acl_work[aclsoll[0]] = true
+			found = false
+			# Check for an existing acl
+			acls[aclsoll[0]].each do |acl|
+				if ( ( not found ) &&
+				  aclsoll[1] == acl["cidrlist"] &&
+				  aclsoll[2] == acl["protocol"] &&
+				  ( aclsoll[3] == acl["startport"] || aclsoll[3].to_i == acl["icmptype"] ) &&
+					( aclsoll[4] == acl["endport"]   || aclsoll[4].to_i == acl["icmpcode"] ) &&
+					aclsoll[5] == acl["traffictype"]
+				) then
+					found = true
+					if ( acl["action"] != "create" ) then
+						acl["action"] = "keep"
+						Chef::Log.info("ACL rule found, keeping")
+					end
+				end
+			end #acls
+			if ( not found ) then
+				# ACL needs to be created
+				Chef::Log.info("ACL rule not found, creating")
+				if ( aclsoll[2] == "icmp" ) then
+					Chef::Log.info(aclsoll)
+					acls[aclsoll[0]] << {
+						:networkid => networks[aclsoll[0]]["id"],
+						:cidrlist => aclsoll[1],
+						:protocol => aclsoll[2],
+						:icmptype => aclsoll[3],
+						:icmpcode => aclsoll[4],
+						:traffictype => aclsoll[5],
+						:action => "create"
+					}
+				else
+					acls[aclsoll[0]] << {
+						:networkid => networks[aclsoll[0]]["id"],
+						:cidrlist => aclsoll[1],
+						:protocol => aclsoll[2],
+						:startport => aclsoll[3],
+						:endport => aclsoll[4],
+						:traffictype => aclsoll[5],
+						:action => "create"
+					}
+				end
+			end #found
+		end #aclsoll
+	end #unmanaged
+end #nodes
+
+jobs = Array.new
 # Now, lets manage firewall rules
 if ( fw_work ) then
   fwrules.each do |fwrule|
@@ -231,6 +319,65 @@ if ( pf_work ) then
     end
   end #pfrule
 end
+
+# Next, lets manage acls
+acl_work.each do |nwname, work|
+  acls[nwname].each do |acl|
+   	#Chef::Log.info(acl)
+   	if ( acl[:action] == "create" ) then
+     	# Time to create an acl
+			if ( acl["protocol"] == "icmp" ) then
+     		Chef::Log.info("Creating acl on network #{nwname}: #{acl[:cidrlist]} #{acl[:protocol]} #{acl[:icmptype]}/#{acl[:icmpcode]} #{acl[:traffictype]}")
+			else
+     		Chef::Log.info("Creating acl on network #{nwname}: #{acl[:cidrlist]} #{acl[:protocol]} #{acl[:startport]}/#{acl[:endport]} #{acl[:traffictype]}")
+			end
+     	params = {
+       	:command => "createNetworkACL",
+       	:response => 'json',
+				:networkid => acl[:networkid],
+				:cidrlist => acl[:cidrlist],
+       	:protocol => acl[:protocol],
+				:traffictype => acl[:traffictype]
+     	}
+			if ( acl[:protocol] == "icmp" ) then
+				params[:icmptype] = acl[:icmptype]
+				params[:icmpcode] = acl[:icmpcode]
+			else
+				params[:startport] = acl[:startport]
+				params[:endport] = acl[:endport]
+			end
+     	json =csapi.get(params).body
+     	jobs.push JSON.parse(json)["createnetworkaclresponse"]["jobid"]
+   	elsif ( acl["action"] == "keep" ) then
+     	# Do nothing
+			if ( acl["protocol"] == "icmp" ) then
+     		Chef::Log.info("Keeping acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["icmptype"]}/#{acl["icmpcode"]} #{acl["traffictype"]}")
+			else
+     		Chef::Log.info("Keeping acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["startport"]}/#{acl["endport"]} #{acl["traffictype"]}")
+			end
+   	elsif node["cloudstack"]["firewall"]["cleanup"] == true then
+			if ( acl["protocol"] == "icmp" ) then
+     		Chef::Log.info("Deleting acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["icmptype"]}/#{acl["icmpcode"]} #{acl["traffictype"]} (id: #{acl["id"]})")
+			else
+     		Chef::Log.info("Deleting acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["startport"]}/#{acl["endport"]} #{acl["traffictype"]} (id: #{acl["id"]})")
+			end
+     	Chef::Log.info("Deleting port forward rule: #{acl["protocol"]} #{acl["ipaddress"]}:#{acl["publicport"]}-#{acl["publicendport"]} -> #{acl["virtualmachinename"]}:#{acl["privateport"]}-#{acl["privateendport"]} (d: #{acl["id"]})")
+     	params = {
+       	:command => "deleteNetworkACL",
+       	:response => 'json',
+       	:id => acl["id"]
+     	}
+     	json =csapi.get(params).body
+     	jobs.push JSON.parse(json)["deletenetworkaclresponse"]["jobid"]
+   	else 
+			if ( acl["protocol"] == "icmp" ) then
+     		Chef::Log.info("Ignoring acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["icmptype"]}/#{acl["icmpcode"]} #{acl["traffictype"]} (id: #{acl["id"]}, cleanup disabled)")
+			else
+     		Chef::Log.info("Ignoring acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["startport"]}/#{acl["endport"]} #{acl["traffictype"]} (id: #{acl["id"]}, cleanup disabled)")
+			end
+   	end
+  end #acl
+end #aclwork
 
 # Wait for all jobs to finish
 jobs.each do |job|

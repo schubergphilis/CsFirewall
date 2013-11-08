@@ -48,7 +48,10 @@ e.g.
   <tr>
     <td><tt>['cloudstack']['firewall']['cleanup']</tt></td>
     <td>Boolean</td>
-    <td>Should rules not matching node attributes be cleaned up?</td>
+    <td>
+		Should rules not matching node attributes be cleaned up?
+		ACLs are only cleaned up when at least one node has specified an ACL in the network
+		</td>
     <td><tt>False</tt></td>
   </tr>
   <tr>
@@ -67,7 +70,34 @@ e.g.
       </tr>
     </table>
     E.g. to specify that external TCP port 80 and 81 on ip 1.2.3.4 have to be allowed publicly and forwarded to port 8080 and 8081 specify:
+```json
     [ [ "1.2.3.4", "tcp", "0.0.0.0/0", "80", "81", "8080" ] ]
+```
+    </td>
+    <td><tt>Empty</tt></td>
+  </tr>
+  <tr>
+    <td><tt>['cloudstack']['firewall']['acl']</tt></td>
+    <td>Array</td>
+    <td>This array holds the actual network ACL rules for this node
+    Each of the rules is specified in the following format:
+    <table>
+      <tr>
+        <td>Netork name</td>
+        <td>CIDR block</td>
+        <td>Protocol (tcp|udp|icmp)</td>
+        <td>Start port or icmp type</td>
+        <td>End port or icmp code</td>
+        <td>Direction (Ingress|Egress) *Mind the capital*<td>
+      </tr>
+    </table>
+    E.g. to specify that 192.168.98.64/26 and 192.168.99.64/26 should be allowed in on tcp port 666 and 667 and all ICMP specify:
+```json
+    [ 
+			[ "XXX_p_FRONT", "192.168.98.64/26,192.168.99.64/26", "tcp", "666", "667", "Ingress" ] 
+      [ "XXX_p_FRONT", "192.168.98.64/26,192.168.99.64/26", "tcp", "666", "667", "Ingress" ] 
+		]
+```
     </td>
     <td><tt>Empty</tt></td>
   </tr>
@@ -78,7 +108,7 @@ Usage
 #### CsFirewall::default
 This recipe does nothing, but tells the Firewall manager to read this hosts attributes for firewall input
 
-Just include `CsFirewall` in your node's `run_list`:
+Just include `CsFirewall` in your node its `run_list`:
 
 ```json
 {
@@ -105,7 +135,7 @@ And add rules to the normal attributes:
 #### CsFirewall::manager
 This recipe tells the node to manage the Cloud Stack firewall
 
-Just include `CsFirewall::manager` in your node's `run_list`:
+Just include `CsFirewall::manager` in your node its `run_list`:
 
 ```json
 {
