@@ -89,7 +89,7 @@ e.g.
         <td>Direction (Ingress|Egress) *Mind the capital*<td>
       </tr>
     </table>
-    E.g. to specify that 192.168.98.64/26 and 192.168.99.64/26 should be allowed in on tcp port 666 and 667 and all ICMP specify:<br>
+    E.g. to specify that on network XXX_p_FRONT 192.168.98.64/26 and 192.168.99.64/26 should be allowed in on tcp port 666 and 667 and all ICMP specify:<br>
     [ <br>
 		&nbsp;&nbsp;	[ "XXX_p_FRONT", "192.168.98.64/26,192.168.99.64/26", "tcp", "666", "667", "Ingress" ] <br>
     &nbsp;&nbsp;  [ "XXX_p_FRONT", "192.168.98.64/26,192.168.99.64/26", "tcp", "666", "667", "Ingress" ] <br>
