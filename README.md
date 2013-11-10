@@ -125,10 +125,19 @@ And add rules to the normal attributes:
 {
   "cloudstack" : {
     "firewall" :{
-      "ingress" : [
-        [ "1.2.3.4", "tcp", "0.0.0.0/0", "80", "81", "8080" ]
-      ]
-    }
+      "ingress" : {
+        "webserver" : [
+          [ "1.2.3.4", "tcp", "0.0.0.0/0", "80", "81", "8080" ]
+        ]
+      }
+    },
+    "acl" : {
+     "appserver" : [
+       [ "XXX_p_FRONT", "192.168.98.64/26,192.168.99.64/26", "tcp", "666", "667", "Ingress" ],
+       [ "nic_0", "192.168.98.64/26,192.168.99.64/26", "tcp", "666", "667", "Ingress" ],
+       [ "nic_0", "nic_0", "tcp", "53", "53", "Egress" ],
+       [ "nic_0", "nic_0", "udp", "53", "53", "Egress" ]
+    ]
   }
 }
 ```
