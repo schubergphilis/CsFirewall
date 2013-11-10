@@ -91,10 +91,13 @@ e.g.
         <td>Direction (Ingress|Egress) *Mind the capital*<td>
       </tr>
     </table>
-    E.g. to specify that on network XXX_p_FRONT 192.168.98.64/26 and 192.168.99.64/26 should be allowed in on tcp port 666 and 667 and all ICMP specify:<br>
+		the keyword nic_# will be replaced with the netowrk the machine is in or the ip address of the machine, if nic_# is found in the network or cidr block field
+    E.g. to specify that on network XXX_p_FRONT 192.168.98.64/26 and 192.168.99.64/26 should be allowed in on tcp port 666 and 667 and all ICMP on the network nic_0 is in, plus to allow tcp and udp 53 from this host specify:<br>
     [ <br>
-		&nbsp;&nbsp;	[ "XXX_p_FRONT", "192.168.98.64/26,192.168.99.64/26", "tcp", "666", "667", "Ingress" ] <br>
-    &nbsp;&nbsp;  [ "XXX_p_FRONT", "192.168.98.64/26,192.168.99.64/26", "tcp", "666", "667", "Ingress" ] <br>
+		&nbsp;&nbsp;	[ "XXX_p_FRONT", "192.168.98.64/26,192.168.99.64/26", "tcp", "666", "667", "Ingress" ], <br>
+    &nbsp;&nbsp;  [ "nic_0", "192.168.98.64/26,192.168.99.64/26", "tcp", "666", "667", "Ingress" ], <br>
+    &nbsp;&nbsp;  [ "nic_0", "nic_0", "tcp", "53", "53", "Egress" ], <br>
+    &nbsp;&nbsp;  [ "nic_0", "nic_0", "udp", "53", "53", "Egress" ] <br>
 		]<br>
     </td>
     <td><tt>Empty</tt></td>

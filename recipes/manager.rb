@@ -93,7 +93,7 @@ json =csapi.get(params).body
 machines = Hash.new
 JSON.parse(json)["listvirtualmachinesresponse"]["virtualmachine"].each do |m|
   machines[m["name"]] = m
-  Chef::Log.info(m)
+  #Chef::Log.info(m)
 end
 
 # This should probably be a partial search, but I don't get the documentation 
@@ -215,12 +215,29 @@ nodes.each do |n|
     end
     tags.each do |tag,ruleset|
       ruleset.each do |aclsoll|
-        acl_work[aclsoll[0]] = true
+				# Expand interface references to network names
+				if ( aclsoll[0] =~ /^nic_\d+$/ ) then
+					index = aclsoll[0].sub(/^nic_/,"").to_i
+					Chef::Log.info(n.name)
+					network = machines[n.name]["nic"][index]["networkname"]
+					Chef::Log.info(network)
+				else
+				  network = aclsoll[0]
+				end
+        acl_work[network] = true
+
+				# Expand inferface reference(s) in cidr_block
+				cidrblock = aclsoll[1] 
+				while ( cidrblock =~ /nic_(\d+)/ ) do
+					index = $1.to_i
+					cidr = "#{machines[n.name]["nic"][index]["ipaddress"]}/32"
+				  cidrblock.gsub!(/nic_#{index}/,cidr)
+				end #cidrblock
         found = false
         # Check for an existing acl
-        acls[aclsoll[0]].each do |acl|
+        acls[network].each do |acl|
           if ( ( not found ) &&
-            aclsoll[1] == acl["cidrlist"] &&
+            cidrblock == acl["cidrlist"] &&
             aclsoll[2] == acl["protocol"] &&
             ( aclsoll[3] == acl["startport"] || aclsoll[3].to_i == acl["icmptype"] ) &&
             ( aclsoll[4] == acl["endport"]   || aclsoll[4].to_i == acl["icmpcode"] ) &&
@@ -237,10 +254,10 @@ nodes.each do |n|
           # ACL needs to be created
           Chef::Log.info("ACL rule not found, creating")
           if ( aclsoll[2] == "icmp" ) then
-            Chef::Log.info(aclsoll)
-            acls[aclsoll[0]] << {
-              :networkid => networks[aclsoll[0]]["id"],
-              :cidrlist => aclsoll[1],
+            #Chef::Log.info(aclsoll)
+            acls[network] << {
+              :networkid => networks[network]["id"],
+              :cidrlist => cidrblock,
               :protocol => aclsoll[2],
               :icmptype => aclsoll[3],
               :icmpcode => aclsoll[4],
@@ -248,9 +265,9 @@ nodes.each do |n|
               :action => "create"
             }
           else
-            acls[aclsoll[0]] << {
-              :networkid => networks[aclsoll[0]]["id"],
-              :cidrlist => aclsoll[1],
+            acls[network] << {
+              :networkid => networks[network]["id"],
+              :cidrlist => cidrblock,
               :protocol => aclsoll[2],
               :startport => aclsoll[3],
               :endport => aclsoll[4],
@@ -390,9 +407,9 @@ acl_work.each do |nwname, work|
       jobs.push JSON.parse(json)["deletenetworkaclresponse"]["jobid"]
     else 
       if ( acl["protocol"] == "icmp" ) then
-        Chef::Log.info("Ignoring acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["icmptype"]}/#{acl["icmpcode"]} #{acl["traffictype"]} (id: #{acl["id"]}, cleanup disabled)")
+        Chef::Log.info("Ignoring acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["icmptype"]}/#{acl["icmpcode"]} #{acl["traffictype"]} (id: #{acl["id"]}, (cleanup disabled)")
       else
-        Chef::Log.info("Ignoring acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["startport"]}/#{acl["endport"]} #{acl["traffictype"]} (id: #{acl["id"]}, cleanup disabled)")
+        Chef::Log.info("Ignoring acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["startport"]}/#{acl["endport"]} #{acl["traffictype"]} (id: #{acl["id"]}, (cleanup disabled)")
       end
     end
   end #acl
