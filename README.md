@@ -3,10 +3,15 @@ CsFirewall Cookbook
 This cookbook enforces the firewall rules in cloudstack via a firewall 
 management node that interacts with the API
 
+Make sure you assign at least one node in the network the CsFirewall::manage 
+role if you want to have your rules enforce in cloudstack. These machines are 
+the machines that will actually talk to the Clud Stack API via http(s)
+
 Requirements
 ------------
 The cloudstack_helper gem needs to be installed on the firewall management
-node to access the API
+node(s) to access the API
+If you use embeeded Ruby, make sure that you install it in this version
 
 Attributes
 ----------
