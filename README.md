@@ -83,8 +83,8 @@ e.g.
     Each of the rules is specified in the following format:
     <table>
       <tr>
-        <td>Netork name</td>
-        <td>CIDR block</td>
+        <td>Network name (or nic_#)</td>
+        <td>CIDR block (may contain nic_#)</td>
         <td>Protocol (tcp|udp|icmp)</td>
         <td>Start port or icmp type</td>
         <td>End port or icmp code</td>
