@@ -55,9 +55,10 @@ e.g.
     <td><tt>False</tt></td>
   </tr>
   <tr>
-    <td><tt>['cloudstack']['firewall']['ingress']</tt></td>
+    <td><tt>['cloudstack']['firewall']['ingress'][&lt;tag&gt;]</tt></td>
     <td>Array</td>
-    <td>This array holds the actual firewall and portnat rules
+    <td>Note, use a unique tag per role to prevent roles overwriting each other
+    This array holds the actual firewall and portnat rules
     Each of the rules is specified in the following format:
     <table>
       <tr>
@@ -75,9 +76,10 @@ e.g.
     <td><tt>Empty</tt></td>
   </tr>
   <tr>
-    <td><tt>['cloudstack']['acl']</tt></td>
+    <td><tt>['cloudstack']['acl'][&lt;tag&gt;]</tt></td>
     <td>Array</td>
-    <td>This array holds the actual network ACL rules for this node
+    <td>Use a unique tag to prevent roles from overwriting firewall rules from other roles
+    This array holds the actual network ACL rules for this node
     Each of the rules is specified in the following format:
     <table>
       <tr>
