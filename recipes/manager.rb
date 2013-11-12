@@ -11,15 +11,12 @@
 
 class Chef::Recipe
   include SearchesLib
+  include ApiLib
 end
 
 Chef::Log.info("Start of CsFirewall::manager recipe")
 
 include_recipe "CsFirewall::prerequisites"
-
-require 'rubygems'
-require 'cloudstack_helper'
-require 'json'
 
 if ( not node["cloudstack"]["url"]  ) then
   Chef::Log.fatal('CsFirewall:manage requires that a cloudstack URL is specified')
@@ -34,70 +31,43 @@ if ( not node["cloudstack"]["SECkey"] ) then
 end
 
 # Get rules from cloudstack
-csapi = CloudStackHelper.new(:api_url => node['cloudstack']['url'],:api_key => node['cloudstack']['APIkey'],:secret_key => node['cloudstack']['SECkey'])
-
-# Port forward
-params = { 
-  :command => "listPortForwardingRules",
-  :response => 'json'
-}
-json =csapi.get(params).body
-pfrules = JSON.parse(json)["listportforwardingrulesresponse"]["portforwardingrule"]
+csapi = setup_csapi(node['cloudstack']['url'],node['cloudstack']['APIkey'],node['cloudstack']['SECkey'])
 
 # Firewall
-params = { 
-  :command => "listFirewallRules",
-  :response => 'json'
-}
-json =csapi.get(params).body
-fwrules = JSON.parse(json)["listfirewallrulesresponse"]["firewallrule"]
+Chef::Log.info("Getting firewall rules")
+fwrules = csapi_do(csapi,{ :command => "listFirewallRules" })["listfirewallrulesresponse"]["firewallrule"]
 
+# Port forward
+Chef::Log.info("Getting port forwarding rules")
+pfrules = csapi_do(csapi,{:command => "listPortForwardingRules"})["listportforwardingrulesresponse"]["portforwardingrule"]
 
 # Networks
-params = { 
-  :command => "listNetworks",
-  :response => 'json'
-}
 networks = Hash.new
-json =csapi.get(params).body
-JSON.parse(json)["listnetworksresponse"]["network"].each do |nw|
+csapi_do(csapi, { :command => "listNetworks" } )["listnetworksresponse"]["network"].each do |nw|
   networks[nw["name"]]=nw
 end
 
 # ACLs
 params = { 
   :command => "listNetworkACLs",
-  :response => 'json'
 }
 acls = Hash.new
 networks.each do |key, nw|
   Chef::Log.info("Getting ACLs of network #{nw["name"]}")
   params[:networkid] = nw["id"]
-  json =csapi.get(params).body
-  acls[nw["name"]] = JSON.parse(json)["listnetworkaclsresponse"]["networkacl"]
+  acls[nw["name"]] = csapi_do(csapi,params)["listnetworkaclsresponse"]["networkacl"]
 end #networks
 
 # IPs
-params = { 
-  :command => "listPublicIpAddresses",
-  :response => 'json'
-}
-json =csapi.get(params).body
 ips = Hash.new
-JSON.parse(json)["listpublicipaddressesresponse"]["publicipaddress"].each do |ip|
+csapi_do(csapi,{ :command => "listPublicIpAddresses" })["listpublicipaddressesresponse"]["publicipaddress"].each do |ip|
   ips[ip["ipaddress"]] = ip["id"]
 end
 
 # Machines
-params = { 
-  :command => "listVirtualMachines",
-  :response => 'json'
-}
-json =csapi.get(params).body
 machines = Hash.new
-JSON.parse(json)["listvirtualmachinesresponse"]["virtualmachine"].each do |m|
+csapi_do(csapi,{ :command => "listVirtualMachines" })["listvirtualmachinesresponse"]["virtualmachine"].each do |m|
   machines[m["name"].downcase] = m
-  #Chef::Log.info(m)
 end
 
 # This should probably be a partial search, but I don't get the documentation 
@@ -323,15 +293,16 @@ if ( fw_work ) then
       Chef::Log.info("Creating firewall rule: #{fwrule[:cidrlist]} -> #{fwrule[:ipaddress]}:#{fwrule[:protocol]} #{fwrule[:startport]}-#{fwrule[:endport]}")
       params = {
         :command => "createFirewallRule",
-        :response => 'json',
         :cidrlist => fwrule[:cidrlist],
         :ipaddressid => ips[fwrule[:ipaddress]],
         :protocol => fwrule[:protocol],
         :startport => fwrule[:startport],
         :endport => fwrule[:endport]
       }
-      json =csapi.get(params).body
-      jobs.push JSON.parse(json)["createfirewallruleresponse"]["jobid"]
+      job = csapi_do(csapi,params)
+      if ( job != nil ) then
+        jobs.push job["createfirewallruleresponse"]["jobid"]
+      end
     elsif ( fwrule["action"] == "keep" ) then
       # Do nothing
       Chef::Log.info("Keeping firewall rule: #{fwrule["cidrlist"]} -> #{fwrule["ipaddress"]}:#{fwrule["protocol"]} #{fwrule["startport"]}-#{fwrule["endport"]}")
@@ -339,11 +310,9 @@ if ( fw_work ) then
       Chef::Log.info("Deleting firewall rule: #{fwrule["cidrlist"]} -> #{fwrule["ipaddress"]}:#{fwrule["protocol"]} #{fwrule["startport"]}-#{fwrule["endport"]} (id: #{fwrule["id"]})")
       params = {
         :command => "deleteFirewallRule",
-        :response => 'json',
         :id => fwrule["id"]
       }
-      json =csapi.get(params).body
-      jobs.push JSON.parse(json)["deletefirewallruleresponse"]["jobid"]
+      jobs.push csapi_do(csapi,params)["deletefirewallruleresponse"]["jobid"]
     else 
       Chef::Log.info("NOT deleting firewall rule: #{fwrule["cidrlist"]} -> #{fwrule["ipaddress"]}:#{fwrule["protocol"]} #{fwrule["startport"]}-#{fwrule["endport"]} (cleanup disabled)")
     end
@@ -359,7 +328,6 @@ if ( pf_work ) then
       Chef::Log.info("Creating port forward rule: #{pfrule[:protocol]} #{pfrule[:ipaddress]}:#{pfrule[:publicport]}-#{pfrule[:publicendport]} -> #{pfrule[:virtualmachinename]}:#{pfrule[:privateport]}-#{pfrule[:privateendport]}")
       params = {
         :command => "createPortForwardingRule",
-        :response => 'json',
         :protocol => pfrule[:protocol],
         :ipaddressid => ips[pfrule[:ipaddress]],
         :publicport => pfrule[:publicport],
@@ -368,8 +336,10 @@ if ( pf_work ) then
         :privateport => pfrule[:privateport],
         :privateendport => pfrule[:privateendport]
       }
-      json =csapi.get(params).body
-      jobs.push JSON.parse(json)["createportforwardingruleresponse"]["jobid"]
+      job = csapi_do(csapi,params)
+      if ( job != nil ) then
+        jobs.push job["createportforwardingruleresponse"]["jobid"]
+      end
     elsif ( pfrule["action"] == "keep" ) then
       # Do nothing
       Chef::Log.info("Keeping port forward rule: #{pfrule["protocol"]} #{pfrule["ipaddress"]}:#{pfrule["publicport"]}-#{pfrule["publicendport"]} -> #{pfrule["virtualmachinename"]}:#{pfrule["privateport"]}-#{pfrule["privateendport"]}")
@@ -377,11 +347,9 @@ if ( pf_work ) then
       Chef::Log.info("Deleting port forward rule: #{pfrule["protocol"]} #{pfrule["ipaddress"]}:#{pfrule["publicport"]}-#{pfrule["publicendport"]} -> #{pfrule["virtualmachinename"]}:#{pfrule["privateport"]}-#{pfrule["privateendport"]} (d: #{pfrule["id"]})")
       params = {
         :command => "deletePortForwardingRule",
-        :response => 'json',
         :id => pfrule["id"]
       }
-      json =csapi.get(params).body
-      jobs.push JSON.parse(json)["deleteportforwardingruleresponse"]["jobid"]
+      jobs.push csapi_do(csapi,params)["deleteportforwardingruleresponse"]["jobid"]
     else 
       Chef::Log.info("NOT deleting port forward rule: #{pfrule["protocol"]} #{pfrule["ipaddress"]}:#{pfrule["publicport"]}-#{pfrule["publicendport"]} -> #{pfrule["virtualmachinename"]}:#{pfrule["privateport"]}-#{pfrule["privateendport"]} (cleanup disabled)")
     end
@@ -401,7 +369,6 @@ acl_work.each do |nwname, work|
       end
       params = {
         :command => "createNetworkACL",
-        :response => 'json',
         :networkid => acl[:networkid],
         :cidrlist => acl[:cidrlist],
         :protocol => acl[:protocol],
@@ -414,8 +381,10 @@ acl_work.each do |nwname, work|
         params[:startport] = acl[:startport]
         params[:endport] = acl[:endport]
       end
-      json =csapi.get(params).body
-      jobs.push JSON.parse(json)["createnetworkaclresponse"]["jobid"]
+      jobs = csapi_do(csapi,params)
+      if ( job != nil ) then
+        jobs.push job["createnetworkaclresponse"]["jobid"]
+      end
     elsif ( acl["action"] == "keep" ) then
       # Do nothing
       if ( acl["protocol"] == "icmp" ) then
@@ -432,11 +401,9 @@ acl_work.each do |nwname, work|
       Chef::Log.info("Deleting port forward rule: #{acl["protocol"]} #{acl["ipaddress"]}:#{acl["publicport"]}-#{acl["publicendport"]} -> #{acl["virtualmachinename"]}:#{acl["privateport"]}-#{acl["privateendport"]} (d: #{acl["id"]})")
       params = {
         :command => "deleteNetworkACL",
-        :response => 'json',
         :id => acl["id"]
       }
-      json =csapi.get(params).body
-      jobs.push JSON.parse(json)["deletenetworkaclresponse"]["jobid"]
+      jobs.push csapi_do(csapi,params)["deletenetworkaclresponse"]["jobid"]
     else 
       if ( acl["protocol"] == "icmp" ) then
         Chef::Log.info("Ignoring acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["icmptype"]}/#{acl["icmpcode"]} #{acl["traffictype"]} (id: #{acl["id"]}, (cleanup disabled)")
@@ -452,17 +419,14 @@ jobs.each do |job|
   status = 1
   params = {
     :command => "queryAsyncJobResult",
-    :response => "json",
     :jobid => job
   }
-  json =csapi.get(params).body
-  status = JSON.parse(json)["queryasyncjobresultresponse"]["jobstatus"]
+  status = csapi_do(csapi,params)["queryasyncjobresultresponse"]["jobstatus"]
   while ( status != 0 ) do
     sleep 1
-    json =csapi.get(params).body
-    status = JSON.parse(json)["queryasyncjobresultresponse"]["jobstatus"]
+    status = csapi_do(csapi,params)["queryasyncjobresultresponse"]["jobstatus"]
   end
-  Chef::Log.info("Job #{job} done, status code #{JSON.parse(json)["queryasyncjobresultresponse"]["jobresultcode"]}")
+  Chef::Log.info("Job #{job} done, status code #{status}")
 end #jobs
 
 Chef::Log.info("End of CsFirewall::manager recipe")
