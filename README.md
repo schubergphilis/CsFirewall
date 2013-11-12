@@ -101,7 +101,7 @@ e.g.
         <li>Node searches can be specified by using curly braches ({}), e.g. {role:domain_controller}, will expand to a list of chef IP addresses of machines with the role domain controller
     </ul>
     E.g. to specify that on network XXX_p_FRONT
-    <u>
+    <ul>
       <li>192.168.98.64/26 and 192.168.99.64/26 should be allowed in on tcp port 666 and 667
       <li>all ICMP on the network nic_0 is allowed in
       <li>allow tcp and udp 53 from this host 
