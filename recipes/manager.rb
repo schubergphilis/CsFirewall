@@ -96,7 +96,7 @@ params = {
 json =csapi.get(params).body
 machines = Hash.new
 JSON.parse(json)["listvirtualmachinesresponse"]["virtualmachine"].each do |m|
-  machines[m["name"]] = m
+  machines[m["name"].downcase] = m
   #Chef::Log.info(m)
 end
 
@@ -231,9 +231,16 @@ nodes.each do |n|
         # Expand interface references to network names
         if ( aclsoll[0] =~ /^nic_\d+$/ ) then
           index = aclsoll[0].sub(/^nic_/,"").to_i
-          Chef::Log.info(n.name)
-          network = machines[n.name]["nic"][index]["networkname"]
-          Chef::Log.info(network)
+					name = n.name.downcase
+					if ( machines[name] == nil ) then
+						name = name.sub(/\..*$/,"")
+						if ( machines[name] == nil ) then
+					    Chef::Log.error("Machine #{n.name.downcase} or #{name} cannot be found in the CloudStack API")
+					    abort("Machine #{n.name.downcase} or #{name} cannot be found in the CloudStack API")
+						end
+					end
+          network = machines[name]["nic"][index]["networkname"]
+					Chef::Log.info("#{name}->nic_#{index} expanded to network '#{network}'.")
         else
           network = aclsoll[0]
         end
@@ -243,7 +250,8 @@ nodes.each do |n|
         cidrblock = aclsoll[1] 
         while ( cidrblock =~ /nic_(\d+)/ ) do
           index = $1.to_i
-          cidr = "#{machines[n.name]["nic"][index]["ipaddress"]}/32"
+          cidr = "#{machines[name]["nic"][index]["ipaddress"]}/32"
+					Chef::Log.info("#{name}->nic_#{index} expanded to cidr '#{cidr}'.")
           cidrblock.gsub!(/nic_#{index}/,cidr)
         end #cidrblock
         
