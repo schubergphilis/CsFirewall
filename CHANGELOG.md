@@ -2,6 +2,10 @@
 
 This file is used to list changes made in each version of CsFirewall.
 
+## 0.4.2
+
+* Fixed issue #2 - cloudstack_helper api is wrapped in function that does error handling
+
 ## 0.4.1
 
 * Fixed issue #1 - Matching between cloudstack and chef
