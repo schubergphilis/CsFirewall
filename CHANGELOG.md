@@ -2,6 +2,10 @@
 
 This file is used to list changes made in each version of CsFirewall.
 
+## 0.4.1
+
+* Fixed issue #1 - Matching between cloudstack and chef
+
 ## 0.4.0:
 
 * Added support for searches
