@@ -7,7 +7,11 @@
 # All rights reserved - Do Not Redistribute
 #
 
-# This recipe is run by those nodes that manage the couldstack firewall
+# This recipe is run by those nodes that manage the couldstack firewall rules
+
+class Chef::Recipe
+  include SearchesLib
+end
 
 Chef::Log.info("Start of CsFirewall::manager recipe")
 
@@ -102,6 +106,7 @@ nodes = search(:node, "cloudstack_firewall_ingress:*")
 
 fw_work = false
 pf_work = false
+cached_searches = Hash.new()
 # Firewall rules go first
 nodes.each do |n|
   unmanaged = n["cloudstack"]["firewall"]["unmanaged"]
@@ -119,13 +124,23 @@ nodes.each do |n|
     tags.each do |tag,ruleset| 
       ruleset.each do |fw|
         found = false
+        # Expand search if found
+        cidrlist = fw[2]
+        while ( cidrlist =~ /\{([^\}]*)\}/ ) do
+          expanded = cached_searches[$1]
+          if ( expanded == nil ) then
+            expanded = search_to_cidrlist($1)
+            cached_searches[$1] = expanded
+          end
+          cidrlist.gsub!(/\{#{$1}\}/, expanded)
+        end
         # Check for a firewall rule
         fwrules.each do |fwrule|
           #Chef::Log.info(fwrule)
           if ( ( not found ) &&
             fw[0] == fwrule["ipaddress"] &&
             fw[1] == fwrule["protocol"] &&
-            fw[2] == fwrule["cidrlist"] &&
+            cidrlist == fwrule["cidrlist"] &&
             fw[3] == fwrule["startport"] &&
             fw[4] == fwrule["endport"] 
           ) then
@@ -142,7 +157,7 @@ nodes.each do |n|
           fwrules << {
             :ipaddress => fw[0],
             :protocol => fw[1],
-            :cidrlist => fw[2],
+            :cidrlist => cidrlist,
             :startport => fw[3],
             :endport => fw[4],
             :action => "create"
@@ -159,7 +174,6 @@ nodes.each do |n|
                 n.hostname == pfrule["virtualmachinename"] &&
                 fw[0] == pfrule["ipaddress"] && 
                 fw[1] == pfrule["protocol"] &&
-                #fw[2] == pfrule["cidrlist"] && 
                 fw[3] == pfrule["publicport"] && 
                 fw[4] == pfrule["publicendport"] &&
                 fw[5] == pfrule["privateport"]
@@ -178,7 +192,6 @@ nodes.each do |n|
               :virtualmachinename => n.hostname,
               :ipaddress => fw[0],
               :protocol => fw[1],
-              :cidrlist => fw[2],
               :publicport => fw[3],
               :publicendport => fw[4],
               :privateport => fw[5],
@@ -215,24 +228,35 @@ nodes.each do |n|
     end
     tags.each do |tag,ruleset|
       ruleset.each do |aclsoll|
-				# Expand interface references to network names
-				if ( aclsoll[0] =~ /^nic_\d+$/ ) then
-					index = aclsoll[0].sub(/^nic_/,"").to_i
-					Chef::Log.info(n.name)
-					network = machines[n.name]["nic"][index]["networkname"]
-					Chef::Log.info(network)
-				else
-				  network = aclsoll[0]
-				end
+        # Expand interface references to network names
+        if ( aclsoll[0] =~ /^nic_\d+$/ ) then
+          index = aclsoll[0].sub(/^nic_/,"").to_i
+          Chef::Log.info(n.name)
+          network = machines[n.name]["nic"][index]["networkname"]
+          Chef::Log.info(network)
+        else
+          network = aclsoll[0]
+        end
         acl_work[network] = true
 
-				# Expand inferface reference(s) in cidr_block
-				cidrblock = aclsoll[1] 
-				while ( cidrblock =~ /nic_(\d+)/ ) do
-					index = $1.to_i
-					cidr = "#{machines[n.name]["nic"][index]["ipaddress"]}/32"
-				  cidrblock.gsub!(/nic_#{index}/,cidr)
-				end #cidrblock
+        # Expand inferface reference(s) in cidr_block
+        cidrblock = aclsoll[1] 
+        while ( cidrblock =~ /nic_(\d+)/ ) do
+          index = $1.to_i
+          cidr = "#{machines[n.name]["nic"][index]["ipaddress"]}/32"
+          cidrblock.gsub!(/nic_#{index}/,cidr)
+        end #cidrblock
+        
+        # Expand searches in cidrblock
+        while ( cidrblock =~ /\{([^\}])\}/ ) do
+          expanded = cached_searches[$1]
+          if ( expanded == nil ) then
+            expanded = search_to_cidrblock($1)
+            cached_searches[$1] = expanded
+          end
+          cidrlist.gsub!(/\{#{$1}\}/, expanded)
+        end #cidrblock
+
         found = false
         # Check for an existing acl
         acls[network].each do |acl|

@@ -96,7 +96,10 @@ e.g.
         <td>Direction (Ingress|Egress) *Mind the capital*<td>
       </tr>
     </table>
-		the keyword nic_# will be replaced with the netowrk the machine is in or the ip address of the machine, if nic_# is found in the network or cidr block field
+    <ul>
+	<li>The keyword nic_# will be replaced with the netowrk the machine is in or the ip address of the machine, if nic_# is found in the network or cidr block field
+        <li>Node searches can be specified by using curly braches ({}), e.g. {role:domain_controller}, will expand to a list of chef IP addresses of machines with the role domain controller
+    </ul>
     E.g. to specify that on network XXX_p_FRONT 192.168.98.64/26 and 192.168.99.64/26 should be allowed in on tcp port 666 and 667 and all ICMP on the network nic_0 is in, plus to allow tcp and udp 53 from this host specify:<br>
     [ <br>
 		&nbsp;&nbsp;	[ "XXX_p_FRONT", "192.168.98.64/26,192.168.99.64/26", "tcp", "666", "667", "Ingress" ], <br>
