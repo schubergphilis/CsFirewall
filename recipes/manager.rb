@@ -55,7 +55,7 @@ acls = Hash.new
 networks.each do |key, nw|
   Chef::Log.info("Getting ACLs of network #{nw["name"]}")
   params[:networkid] = nw["id"]
-  acls[nw["name"]] = csapi_do(csapi,params)["listnetworkaclsresponse"]["networkacl"]
+  acls[nw["name"]] = csapi_do(csapi,params)["listnetworkaclsresponse"]["networkacl"] || []
 end #networks
 
 # IPs
@@ -226,13 +226,13 @@ nodes.each do |n|
         end #cidrblock
         
         # Expand searches in cidrblock
-        while ( cidrblock =~ /\{([^\}])\}/ ) do
+        while ( cidrblock =~ /\{([^\}]*)\}/ ) do
           expanded = cached_searches[$1]
           if ( expanded == nil ) then
-            expanded = search_to_cidrblock($1)
+            expanded = search_to_cidrlist($1)
             cached_searches[$1] = expanded
           end
-          cidrlist.gsub!(/\{#{$1}\}/, expanded)
+          cidrblock.gsub!(/\{#{$1}\}/, expanded)
         end #cidrblock
 
         found = false
@@ -422,7 +422,7 @@ jobs.each do |job|
     :jobid => job
   }
   status = csapi_do(csapi,params)["queryasyncjobresultresponse"]["jobstatus"]
-  while ( status != 0 ) do
+  while ( status == 0 ) do
     sleep 1
     status = csapi_do(csapi,params)["queryasyncjobresultresponse"]["jobstatus"]
   end
