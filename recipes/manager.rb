@@ -381,7 +381,7 @@ acl_work.each do |nwname, work|
         params[:startport] = acl[:startport]
         params[:endport] = acl[:endport]
       end
-      jobs = csapi_do(csapi,params)
+      job = csapi_do(csapi,params)
       if ( job != nil ) then
         jobs.push job["createnetworkaclresponse"]["jobid"]
       end
