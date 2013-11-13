@@ -2,6 +2,10 @@
 
 This file is used to list changes made in each version of CsFirewall.
 
+## 0.4.3
+
+* Fixed issue #3 - overwritten jobs by a single job
+
 ## 0.4.2
 
 * Fixed issue #2 - cloudstack_helper api is wrapped in function that does error handling
