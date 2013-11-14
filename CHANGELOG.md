@@ -2,6 +2,13 @@
 
 This file is used to list changes made in each version of CsFirewall.
 
+## 0.4.4
+
+* Fixed issue #5 - THree bugs fixed by Thijs Houtenbos
+- ListNetWorkAcls may return an empty list, the recipe should not break
+- search expension did work for ACLs
+- Jobs that return the status 0 are still in prgress, wait for an additional return code
+
 ## 0.4.3
 
 * Fixed issue #3 - overwritten jobs by a single job
