@@ -106,15 +106,16 @@ nodes.each do |n|
       ruleset.each do |fw|
         found = false
         # Expand search if found
-        cidrlist = fw[2]
-        while ( cidrlist =~ /\{([^\}]*)\}/ ) do
-          expanded = cached_searches[$1]
-          if ( expanded == nil ) then
-            expanded = search_to_cidrlist($1)
-            cached_searches[$1] = expanded
-          end
-          cidrlist.gsub!(/\{#{$1}\}/, expanded)
-        end
+        cidrlist = expand_search(fw[2])
+        #cidrlist = fw[2]
+        #while ( cidrlist =~ /\{([^\}]*)\}/ ) do
+        #  expanded = cached_searches[$1]
+        #  if ( expanded == nil ) then
+        #    expanded = search_to_cidrlist($1)
+        #    cached_searches[$1] = expanded
+        #  end
+        #  cidrlist.gsub!(/\{#{$1}\}/, expanded)
+        #end
         # Check for a firewall rule
         fwrules.each do |fwrule|
           #Chef::Log.info(fwrule)
@@ -212,16 +213,16 @@ nodes.each do |n|
         # Expand interface references to network names
         if ( aclsoll[0] =~ /^nic_\d+$/ ) then
           index = aclsoll[0].sub(/^nic_/,"").to_i
-					name = n.name.downcase
-					if ( machines[name] == nil ) then
-						name = name.sub(/\..*$/,"")
-						if ( machines[name] == nil ) then
-					    Chef::Log.error("Machine #{n.name.downcase} or #{name} cannot be found in the CloudStack API")
-					    abort("Machine #{n.name.downcase} or #{name} cannot be found in the CloudStack API")
-						end
-					end
+          name = n.name.downcase
+          if ( machines[name] == nil ) then
+            name = name.sub(/\..*$/,"")
+            if ( machines[name] == nil ) then
+              Chef::Log.error("Machine #{n.name.downcase} or #{name} cannot be found in the CloudStack API")
+              abort("Machine #{n.name.downcase} or #{name} cannot be found in the CloudStack API")
+            end
+          end
           network = machines[name]["nic"][index]["networkname"]
-					Chef::Log.info("#{name}->nic_#{index} expanded to network '#{network}'.")
+          Chef::Log.info("#{name}->nic_#{index} expanded to network '#{network}'.")
         else
           network = aclsoll[0]
         end
@@ -232,19 +233,20 @@ nodes.each do |n|
         while ( cidrblock =~ /nic_(\d+)/ ) do
           index = $1.to_i
           cidr = "#{machines[name]["nic"][index]["ipaddress"]}/32"
-					Chef::Log.info("#{name}->nic_#{index} expanded to cidr '#{cidr}'.")
+          Chef::Log.info("#{name}->nic_#{index} expanded to cidr '#{cidr}'.")
           cidrblock.gsub!(/nic_#{index}/,cidr)
         end #cidrblock
         
         # Expand searches in cidrblock
-        while ( cidrblock =~ /\{([^\}]*)\}/ ) do
-          expanded = cached_searches[$1]
-          if ( expanded == nil ) then
-            expanded = search_to_cidrlist($1)
-            cached_searches[$1] = expanded
-          end
-          cidrblock.gsub!(/\{#{$1}\}/, expanded)
-        end #cidrblock
+        cidrblock = expand_search(cidrblock)
+        #while ( cidrblock =~ /\{([^\}]*)\}/ ) do
+        #  expanded = cached_searches[$1]
+        #  if ( expanded == nil ) then
+        #    expanded = search_to_cidrlist($1)
+        #    cached_searches[$1] = expanded
+        #  end
+        #  cidrblock.gsub!(/\{#{$1}\}/, expanded)
+        #end #cidrblock
 
         found = false
         # Check for an existing acl
@@ -432,12 +434,14 @@ jobs.each do |job|
     :command => "queryAsyncJobResult",
     :jobid => job
   }
-  status = csapi_do(csapi,params)["queryasyncjobresultresponse"]["jobstatus"]
-  while ( status == 0 ) do
+  Chef::Log.info("Checking status of job #{job}")
+  status = csapi_do(csapi,params)["queryasyncjobresultresponse"]
+  while ( status["jobstatus"] == 0 ) do
+    Chef::Log.info("Status of job #{job} is #{status["jobstatus"]}")
     sleep 1
-    status = csapi_do(csapi,params)["queryasyncjobresultresponse"]["jobstatus"]
+    status = csapi_do(csapi,params)["queryasyncjobresultresponse"]
   end
-  Chef::Log.info("Job #{job} done, status code #{status}")
+  Chef::Log.info("Job #{job} done, #{job["jobresult"]}.")
 end #jobs
 
 Chef::Log.info("End of CsFirewall::manager recipe")
