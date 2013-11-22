@@ -2,6 +2,10 @@
 
 This file is used to list changes made in each version of CsFirewall.
 
+## 0.5.0
+
+* Egress firewall rules are also supported now
+
 ## 0.4.4
 
 * Fixed issue #5 - THree bugs fixed by Thijs Houtenbos
