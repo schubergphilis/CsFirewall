@@ -52,15 +52,22 @@ fwrules = csapi_do(csapi,{ :command => "listFirewallRules" })["listfirewallrules
 Chef::Log.info("Getting port forwarding rules")
 pfrules = csapi_do(csapi,{:command => "listPortForwardingRules"})["listportforwardingrulesresponse"]["portforwardingrule"]
 
-# Firewall Egress
-Chef::Log.info("Getting egress firewall rules")
-egressrules = csapi_do(csapi,{ :command => "listEgressFirewallRules" })["listegressfirewallrulesresponse"]["firewallrule"]
-
 # Networks
 networks = Hash.new
 csapi_do(csapi, { :command => "listNetworks" } )["listnetworksresponse"]["network"].each do |nw|
   networks[nw["name"]]=nw
 end
+
+# Firewall Egress
+egressrules = Hash.new()
+params = { 
+  :command => "listEgressFirewallRules"
+}
+networks.each do |key, nw|
+  Chef::Log.info("Getting egress firewall rules of network #{nw["name"]}")
+  params[:networkid] = nw["id"]
+  egressrules[nw["name"]]  = csapi_do(csapi,params)["listegressfirewallrulesresponse"]["firewallrule"]
+end #networks
 
 # ACLs
 params = { 
@@ -111,15 +118,6 @@ nodes.each do |n|
         found = false
         # Expand search if found
         cidrlist = expand_search(fw[2])
-        #cidrlist = fw[2]
-        #while ( cidrlist =~ /\{([^\}]*)\}/ ) do
-        #  expanded = cached_searches[$1]
-        #  if ( expanded == nil ) then
-        #    expanded = search_to_cidrlist($1)
-        #    cached_searches[$1] = expanded
-        #  end
-        #  cidrlist.gsub!(/\{#{$1}\}/, expanded)
-        #end
         # Check for a firewall rule
         fwrules.each do |fwrule|
           #Chef::Log.info(fwrule)
@@ -193,8 +191,8 @@ nodes.each do |n|
 end #node
 
 # Egress rules
-nodes = search(:node, "cloudstack_firewall_egress")
-egresswork = Hash.new
+nodes = search(:node, "cloudstack_firewall_egress:*")
+egresswork = Hash.new()
 
 nodes.each do |n|
   unmanaged = false
@@ -204,7 +202,7 @@ nodes.each do |n|
   if ( unmanaged != true ) then
     Chef::Log.info("Found egress rules for host: #{n.name}")
     # Get egress rules from host
-    n["cloudstack"]["firewall"]["egress"] do |tag,ruleset|
+    n["cloudstack"]["firewall"]["egress"].each do |tag,ruleset|
       ruleset.each do |rule|
         # Expand interface references to network names
         if ( rule[0] =~ /^nic_(\d+)$/) then
@@ -223,7 +221,57 @@ nodes.each do |n|
         else
           network = rule[0]
         end
-        egresswork["network"] = true
+        egresswork[network] = true
+
+        #Expand seraches in cidrblock
+        cidrblock = expand_search(rule[1])
+
+        # Search for matching egress rule
+        found = false
+        if ( egressrules[network] ) then
+          egressrules[network].each do |erule|
+            if ( ( not found ) &&
+              cidrblock == erule["cidrlist"] &&
+              rule[2] == erule["protocol"] &&
+              ( rule[3] == erule["startport"] || rule[3].to_i == erule["icmptype"] ) &&
+              ( rule[4] == erule["endport"] || rule[4].to_i == erule["icmpcode"] ) 
+            ) then
+              found = true
+              if ( erule["action"] != "create" ) then
+                erule["action"] = "keep"
+                Chef::Log.info("Egress rule found, keeping")
+              end
+            end 
+          end #erule
+        end #if
+        if ( not egressrules[network] ) then
+          Chef::Log.fatal("Network #{network} is not in the API scope, we will probably fail")
+          egressrules[network] = []
+          networks[network] = networks[network] || Hash.new
+        end
+        if ( not found ) then
+          # Need to create egress fule
+          Chef::Log.info("Egress rule not found, creating")
+          if ( rule[2] == "icmp" ) then
+            egressrules[network] << {
+              "networkid" => networks[network]["id"] || nil,
+              "cidrlist" => cidrblock,
+              "protocol" => rule[2],
+              "imcptype" => rule[3],
+              "icmpcode" => rule[4],
+              "action" => "create"
+            }
+          else 
+            egressrules[network] << {
+              "networkid" => networks[network]["id"],
+              "cidrlist" => cidrblock,
+              "protocol" => rule[2],
+              "startport" => rule[3],
+              "endport" => rule[4],
+              "action" => "create"
+            }
+          end
+        end # not found
       end #ruleset
     end # egress
   end #unmanged
@@ -270,25 +318,8 @@ nodes.each do |n|
         end
         acl_work[network] = true
 
-        # Expand inferface reference(s) in cidr_block
-        cidrblock = aclsoll[1] 
-        while ( cidrblock =~ /nic_(\d+)/ ) do
-          index = $1.to_i
-          cidr = "#{machines[name]["nic"][index]["ipaddress"]}/32"
-          Chef::Log.info("#{name}->nic_#{index} expanded to cidr '#{cidr}'.")
-          cidrblock.gsub!(/nic_#{index}/,cidr)
-        end #cidrblock
-        
         # Expand searches in cidrblock
         cidrblock = expand_search(cidrblock)
-        #while ( cidrblock =~ /\{([^\}]*)\}/ ) do
-        #  expanded = cached_searches[$1]
-        #  if ( expanded == nil ) then
-        #    expanded = search_to_cidrlist($1)
-        #    cached_searches[$1] = expanded
-        #  end
-        #  cidrblock.gsub!(/\{#{$1}\}/, expanded)
-        #end #cidrblock
 
         found = false
         # Check for an existing acl
@@ -411,6 +442,61 @@ if ( pf_work ) then
   end #pfrule
 end
 
+# Let's manage egress rulles
+egresswork.each do |nwname, work|
+  Chef::Log.info("Managing egress rules for network #{nwname}")
+  egressrules[nwname].each do |rule|
+    #Chef::Log.info(rule)
+    if ( rule["action"] == "create" ) then
+      # We need to create a rule
+      params = {
+        :command => "createEgressFirewallRule",
+        :networkid => rule["networkid"],
+        :cidrlist => rule["cidrlist"],
+        :protocol => rule["protocol"]
+      }
+      if ( rule["protocol"] == "icmp" ) then
+        Chef::Log.info("Creating egress rule on network #{nwname}: 0.0.0.0/0->#{rule["cidrlist"]} #{rule["protocol"]} #{rule["icmptype"]}/#{rule["icmpcode"]}")
+        params[:icmptype] = rule["icmptype"]
+        params[:icmpcode] = rule["icmpcode"]
+      else
+        Chef::Log.info("Creating egress rule on network #{nwname}: 0.0.0.0/0->#{rule["cidrlist"]} #{rule["protocol"]} #{rule["startport"]}/#{rule["endport"]}")
+        params[:startport] = rule["startport"]
+        params[:endport] = rule["endport"]
+      end
+      job = csapi_do(csapi,params)
+      if ( job != nil ) then
+        jobs.push job["createegressfirewallruleresponse"]["jobid"]
+      end
+    elsif ( rule["action"] == "keep" ) then
+      # We need to keep this rule
+      if ( rule["protocol"] == "icmp" ) then
+        Chef::Log.info("Keeping egress rule on network #{nwname}: 0.0.0.0/0->#{rule["cidrlist"]} #{rule["protocol"]} #{rule["icmptype"]}/#{rule["icmpcode"]}")
+      else
+        Chef::Log.info("Keeping egress rule on network #{nwname}: 0.0.0.0/0->#{rule["cidrlist"]} #{rule["protocol"]} #{rule["startport"]}/#{rule["endport"]}")
+      end
+    elsif ( node["cloudstack"]["firewall"]["cleanup"] == true ) then
+      # We can delete this rule
+      if ( rule["protocol"] == "icmp" ) then
+        Chef::Log.info("Deleting egress rule on network #{nwname}: 0.0.0.0/0->#{rule["cidrlist"]} #{rule["protocol"]} #{rule["icmptype"]}/#{rule["icmpcode"]}")
+      else
+        Chef::Log.info("Deleting egress rule on network #{nwname}: 0.0.0.0/0->#{rule["cidrlist"]} #{rule["protocol"]} #{rule["startport"]}/#{rule["endport"]}")
+      end
+      params = { 
+        :command => "deleteEgressFirewallRule",
+        :id => rule["id"]
+      }
+      jobs.push csapi_do(csapi,params)["deleteegressfirewallruleresponse"]["jobid"]
+    else
+      if ( rule["protocol"] == "icmp" ) then
+        Chef::Log.info("Ignoring egress rule on network #{nwname}: 0.0.0.0/0->#{rule["cidrlist"]} #{rule["protocol"]} #{rule["icmptype"]}/#{rule["icmpcode"]} (cleanup disabled)")
+      else
+        Chef::Log.info("Ignoring egress rule on network #{nwname}: 0.0.0.0/0->#{rule["cidrlist"]} #{rule["protocol"]} #{rule["startport"]}/#{rule["endport"]} (cleanup disabled)")
+      end
+    end
+  end #egressrules
+end #egresswork
+
 # Next, lets manage acls
 acl_work.each do |nwname, work|
   acls[nwname].each do |acl|
@@ -471,7 +557,6 @@ end #aclwork
 
 # Wait for all jobs to finish
 jobs.each do |job|
-  status = 1
   params = {
     :command => "queryAsyncJobResult",
     :jobid => job
@@ -483,7 +568,7 @@ jobs.each do |job|
     sleep 1
     status = csapi_do(csapi,params)["queryasyncjobresultresponse"]
   end
-  Chef::Log.info("Job #{job} done, #{job["jobresult"]}.")
+  Chef::Log.info("Job #{job} done, result: #{job["jobresult"]}.")
 end #jobs
 
 Chef::Log.info("End of CsFirewall::manager recipe")
