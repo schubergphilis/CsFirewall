@@ -111,7 +111,19 @@ e.g.
   <tr>
     <td><tt>['cloudstack']['firewall']['iptables'][&lt;chain&gt;]</tt></td>
     <td>string</td>
-    <td>These attributes control the default policies for the &lt;chain&gt;</td>
+    <td>
+      These attributes control the default policies for the &lt;chain&gt;
+      To set a default blocking policy on all default chains:
+      { "cloudstack" : {
+      &nbsp;&nbsp;"firewall" : {
+      &nbsp;&nbsp;&nbsp;&nbsp;"iptables" : {
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"INPUT" : "DROP",
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"FORWARD" : "DROP",
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"OUTPUT" : "DROP"
+      &nbsp;&nbsp;&nbsp;&nbsp;}
+      &nbsp;&nbsp;}
+      }
+    </td>
     <td>The following rules have default values:
       <ul>
         <li>INPUT - ACCEPT
