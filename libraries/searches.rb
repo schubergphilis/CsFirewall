@@ -15,6 +15,8 @@
 # limitations under the License.
 
 module SearchesLib
+  @@cached_searches = Hash.new()
+
   def search_to_cidrlist(search='')
     cidrs = Array.new()
     if ( search == '' ) then
@@ -35,4 +37,21 @@ module SearchesLib
     Chef::Log.info("search #{search} expanded to #{cidrs.join ","}")
     return cidrs.sort.join(",")
   end
+
+  def expand_search(rule='')
+    exp = rule
+    while ( exp =~ /\{([^\}]*)\}/ ) do
+      expanded = @@cached_searches[$1]
+      if ( expanded == nil ) then
+        expanded = search_to_cidrlist($1)
+        @@cached_searches[$1] = expanded
+      end
+      exp.gsub!(/\{#{$1}\}/,expanded)
+    end # while
+    if ( rule != exp ) then
+      Chef::Log.info("Expanded #{rule} to #{exp}")
+    end
+    return exp
+  end #expand_search
+
 end
