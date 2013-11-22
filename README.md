@@ -113,7 +113,7 @@ e.g.
     <td>string</td>
     <td>
       These attributes control the default policies for the &lt;chain&gt;
-      To set a default blocking policy on all default chains:
+      To set a default blocking policy on all default chains: <br>
       { "cloudstack" : { <br>
       &nbsp;&nbsp; "firewall" : { <br>
       &nbsp;&nbsp;&nbsp;&nbsp; "iptables" : { <br>
