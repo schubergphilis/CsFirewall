@@ -369,7 +369,7 @@ end
 
 # Next, lets manage acls
 acl_work.each do |nwname, work|
-  acls[nwname].each do |acl|
+  acls[nwname].uniq.each do |acl|
     #Chef::Log.info(acl)
     if ( acl[:action] == "create" ) then
       # Time to create an acl

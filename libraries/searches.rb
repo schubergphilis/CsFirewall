@@ -33,6 +33,6 @@ module SearchesLib
     end
 
     Chef::Log.info("search #{search} expanded to #{cidrs.join ","}")
-    return cidrs.join ","
+    return cidrs.sort.join(",")
   end
 end
