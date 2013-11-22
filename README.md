@@ -109,6 +109,12 @@ e.g.
     <td><tt>Empty</tt></td>
   </tr>
   <tr>
+    <td><tt>['cloudstack']['firewall']['iptables'][&lt;chain&gt;]</tt></td>
+    <td>string</td>
+    <td>These attributes control the default policies for the &lt;chain&gt;</td?
+    <td><ul><li>INPUT - ACCEPT<li>FORWARD - DROP<li>OUTPUT - ACCEPT</ul></td>
+  </tr>
+  <tr>
     <td><tt>['cloudstack']['acl'][&lt;tag&gt;]</tt></td>
     <td>Array</td>
     <td>Use a unique tag to prevent roles from overwriting firewall rules from other roles

@@ -19,4 +19,4 @@
 default['cloudstack']['firewall']['cleanup']  = false
 default['cloudstack']['firewall']['iptables']['INPUT'] = 'ACCEPT'
 default['cloudstack']['firewall']['iptables']['OUTPUT'] = 'ACCEPT'
-default['cloudstack']['firewall']['iptables']['FORWARD'] = 'ACCEPT'
+default['cloudstack']['firewall']['iptables']['FORWARD'] = 'DROP'
