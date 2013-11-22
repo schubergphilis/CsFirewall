@@ -221,12 +221,42 @@ And add configuration attributes
 }
 ```
 
+#### CsFirewall::hostbased
+This recipe tell the node to take its cloudstack firewall rules and create and maintain 
+hostbased firewall rules from them.
+
+Depending of the OS flavour, this recipe will call an addition recipe
+
+* Linux -> CsFirewall::hostbased
+* Other -> Not yet implemented
+
+#### CsFirewall::hostbased
+This recipe tell the node to take its cloudstack firewall rules and create and maintain 
+hostbased firewall rules from them.
+
+This recipe is intended to be called via CsFirewall::hostbased
+
+If you want the default policy for the firewall altered you need to overwrite the following 
+default properties:
+
+```json
+{
+  "cloudstack" : {
+    "firewall" : {
+      "iptables" : {
+        "INPUT" : "DROP",
+        "OUTPUT" : "DROP",
+        "FORWARD" : "DROP"
+      }
+    }
+  }
+{
+```
+
+
 Contributing
 ------------
-TODO: (optional) If this is a public cookbook, detail the process for contributing. If this is a private cookbook, remove this section.
-
-e.g.
-1. Fork the repository on https://github.schubergphilis.com/fbreedijk/CsFirewall
+1. Fork the repository on https://github.schubergphilis.com/SBP-Cookbooks/CsFirewall
 2. Create a named feature branch (like `add_component_x`)
 3. Write you change
 4. Write tests for your change (if applicable)
@@ -237,3 +267,4 @@ License and Authors
 -------------------
 Authors: 
 * Frank Breedijk <fbreedijk@schubergphilis.com>
+* Thijs Houtenbos <thoutenbos@schubergphilis.com>

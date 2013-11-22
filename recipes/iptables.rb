@@ -41,7 +41,7 @@ ipt.split("\n").each do |l|
     Chef::Log.info("Ignoring blank line: #{l}")
   elsif ( l =~ /^target\s+prot/ ) then
     Chef::Log.info("Ignoring header line: #{l}")
-  elsif ( l =~ /^(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(.*?)\s*$/ ) then 
+  elsif ( l =~ /^(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s*(.*?)\s*$/ ) then 
     Chef::Log.info("Policy line: #{l}")
     rules[chain]["rules"].push({
       "target" => $1,
@@ -56,6 +56,7 @@ ipt.split("\n").each do |l|
   end #if
 end #split
 
+# First the ingress rules
 if ( node['cloudstack'] && node['cloudstack']['firewall'] && node['cloudstack']['firewall']['ingress'] ) then
   # We have inbound firewall rules
   node['cloudstack']['firewall']['ingress'].each do |set,csrules|
@@ -80,18 +81,21 @@ if ( node['cloudstack'] && node['cloudstack']['firewall'] && node['cloudstack'][
         found = false
         # Find matching iptable rule
         if ( rules["INPUT"] == nil ) then
-          Chef::Log.fatal("txtNo INPUT chain found")
+          Chef::Log.fatal("No INPUT chain found")
         end
         rules["INPUT"]["rules"].each do |iptrule|
           if ( (not found) && 
                iptrule["target"] == "ACCEPT" &&
                iptrule["proto"] == rule[1] &&
                iptrule["source"] == cidr &&
-               iptrule["destination"] == "#{node["ipaddress"]}" &&
+               iptrule["destination"] == node["ipaddress"] &&
                iptrule["other"] == txtrule
              ) then
             found = true
-            iptrule["action"] = "keep"
+            if ( iptrule["action"] != "create" ) then
+              Chef::Log.info("Rule found, keeping")
+              iptrule["action"] = "keep"
+            end
           end
         end #iptrule
         if ( not found ) then
@@ -103,6 +107,74 @@ if ( node['cloudstack'] && node['cloudstack']['firewall'] && node['cloudstack'][
             "end" => (rule[5].to_i()+rule[4].to_i()-rule[3].to_i()).to_s(),
             "destination" => node["ipaddress"],
             "source" => cidr,
+            "other" => txtrule,
+            "action" => "create"
+          })
+        end # new rule
+      end #cidr
+    end #rule
+  end #set
+end # firewall ingress
+
+# Next the egress rules
+if ( node['cloudstack'] && node['cloudstack']['firewall'] && node['cloudstack']['firewall']['egress'] ) then
+  # We have outbound firewall rules
+  node['cloudstack']['firewall']['egress'].each do |set,csrules|
+    Chef::Log.info("Processing outbound ruleset: #{set}")
+    csrules.each do |rule|
+      # network, cidrlist, protocol, start, end
+      # Expand searches
+      cidrlist = expand_search(rule[1])
+      # Do some transformations
+      if ( (rule[2] == "tcp" || rule[2] == "udp") && rule[3] != rule[4] ) then
+        # We have a port range
+        txtrule = "#{rule[2]} dpts:#{rule[3]}:#{rule[4]}"
+      elsif ( (rule[2] == "tcp" || rule[2] == "udp") && rule[3] == rule[4] ) then
+        # We have a single port
+        txtrule = "#{rule[2]} dpt:#{rule[3]}"
+      elsif ( rule[2] == "icmp" ) then
+        txtrule = ""
+        if ( rule[3] != "-1" ) then
+          txtrule << "icmp type #{rule[3]}"
+        end
+        if ( rule[4] != "-1" ) then
+          txtrule << " code #{rule[4]}"
+        end
+      else
+        Chef::Log.fatal("Cannot translate #{rule.join("\\")} into an iptables rule")
+      end
+      # expand cidrlist
+      cidrlist.split(",").each do |cidr|
+        cidr.gsub!(/\/32/,"")
+        found = false
+        # Find matching iptable rule
+        if ( rules["OUTPUT"] == nil ) then
+          Chef::Log.fatal("No OUTPUT chain found")
+        end
+        rules["OUTPUT"]["rules"].each do |iptrule|
+          if ( (not found) && 
+               iptrule["target"] == "ACCEPT" &&
+               iptrule["proto"] == rule[2] &&
+               iptrule["source"] == node["ipaddress"] &&
+               iptrule["destination"] == cidr &&
+               iptrule["other"] == txtrule
+             ) then
+            found = true
+            if ( iptrule["action"] != "create" ) then
+              Chef::Log.info("Rule found, keeping")
+              iptrule["action"] = "keep"
+            end
+          end
+        end #iptrule
+        if ( not found ) then
+          # rule not found, need to create one
+          rules["OUTPUT"]["rules"].push({
+            "target" => "ACCEPT",
+            "proto" => rule[2],
+            "start" => rule[3],
+            "end" => rule[4],
+            "source" => node["ipaddress"],
+            "destination" => cidr,
             "other" => txtrule,
             "action" => "create"
           })
@@ -157,7 +229,10 @@ if ( node['cloudstack'] && node['cloudstack']['acl'] ) then
                iptrule["other"] == txtrule
              ) then
             found = true
-            iptrule["action"] = "keep"
+            if ( iptrule["action"] != "create" ) then
+              Chef::Log.info("Rule found, keeping")
+              iptrule["action"] = "keep"
+            end
           end
         end #iptrule
         if ( not found ) then
@@ -204,15 +279,26 @@ rules.each do |chain,ruleset|
       Chef::Log.info("Keeping #{chain} rule: #{rule["source"]}->#{rule["destination"]} #{rule["other"]} -> #{rule["target"]}")
     elsif ( rule["action"] == "create" ) then
       Chef::Log.info("Creating #{chain} rule: #{rule["source"]}->#{rule["destination"]} #{rule["other"]}")
-      if ( rule["start"] == rule["end"] ) then
-        # Single port
-        output = `iptables -A #{chain} -p #{rule["proto"]} --dport #{rule["start"]} -s #{rule["source"]} -d #{rule["destination"]} -j ACCEPT`
-        Chef::Log.info(output)
+      if ( rule["proto"] == "icmp" ) then
+        cmd = "iptables -A #{chain} -p #{rule["proto"]} "
+        if ( rule["start"] != "-1" ) then
+          cmd << "--icmp-type #{rule["start"]}"
+        end
+        if ( rule["end"] != "-1" ) then
+          cmd << "/#{rule["end"]}"
+        end
+        cmd << " -s #{rule["source"]} -d #{rule["destination"]} -j ACCEPT 2>&1"
       else
-        # multiport
-        output = `iptables -A #{chain} -p #{rule["proto"]} --dport #{rule["start"]}:#{rule["end"]} -s #{rule["source"]} -d #{rule["destination"]} -j ACCEPT`
-        Chef::Log.info(output)
+        if ( rule["start"] == rule["end"] ) then
+          # Single port
+          cmd = "iptables -A #{chain} -p #{rule["proto"]} --dport #{rule["start"]} -s #{rule["source"]} -d #{rule["destination"]} -j ACCEPT 2>&1"
+        else
+          # multiport
+          cmd = "iptables -A #{chain} -p #{rule["proto"]} --dport #{rule["start"]}:#{rule["end"]} -s #{rule["source"]} -d #{rule["destination"]} -j ACCEPT 2>&1"
+        end
       end
+      output = `#{cmd}`
+      Chef::Log.info("CMD: #{cmd} OUT:#{output}")
     else
       Chef::Log.info("Marked for deletion: #{chain} rule: #{rule["source"]}->#{rule["destination"]} #{rule["other"]} -> #{rule["target"]}")
       delete[chain].push(count)
@@ -221,12 +307,23 @@ rules.each do |chain,ruleset|
   end # rule
 end #rules
 
-delete.each do |chain,rules|
-  rules.reverse_each do |number|
+delete.each do |chain,rulset|
+  rulset.reverse_each do |number|
     Chef::Log.info("Deleting rule #{number} from chain #{chain}")
-    output = `iptables -D #{chain} #{number}`
-    Chef::Log.info(output)
-  end #rules
+    cmd = "iptables -D #{chain} #{number} 2>&1"
+    output = `#{cmd}`
+    Chef::Log.info("CMD: #{cmd} OUT:#{output}")
+  end #rulset
 end #delete
+
+# Setting default policies
+node["cloudstack"]["firewall"]["iptables"].each do |chain,policy|
+  if ( rules[chain]["policy"] != policy ) then
+    Chef::Log.info("Setting default polic for chain #{chain} to #{policy}")
+    cmd = "iptables -P #{chain} #{policy} 2>&1"
+    output = `#{cmd}`
+    Chef::Log.info("CMD: #{cmd} OUT:#{output}")
+  end
+end
 
 Chef::Log.info("End of CsFirewall::iptables recipe")
