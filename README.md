@@ -115,13 +115,13 @@ e.g.
       These attributes control the default policies for the &lt;chain&gt;
       To set a default blocking policy on all default chains:
       { "cloudstack" : {
-      &nbsp;&nbsp;"firewall" : {
-      &nbsp;&nbsp;&nbsp;&nbsp;"iptables" : {
-      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"INPUT" : "DROP",
-      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"FORWARD" : "DROP",
-      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"OUTPUT" : "DROP"
-      &nbsp;&nbsp;&nbsp;&nbsp;}
-      &nbsp;&nbsp;}
+        "firewall" : {
+          "iptables" : {
+            "INPUT" : "DROP",
+            "FORWARD" : "DROP",
+            "OUTPUT" : "DROP"
+          }
+        }
       }
     </td>
     <td>The following rules have default values:
