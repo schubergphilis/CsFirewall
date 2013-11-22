@@ -173,15 +173,22 @@ And add rules to the normal attributes:
         "webserver" : [
           [ "1.2.3.4", "tcp", "0.0.0.0/0", "80", "81", "8080" ]
         ]
+      },
+      "egress" : {
+        "dnsclient" : [
+          [ "nic_0", "8.8.8.8/32", "tcp", "53", "53" ],
+          [ "nic_0", "8.8.8.8/32", "udp", "53", "53" ]
+        ]
       }
     },
     "acl" : {
-     "appserver" : [
-       [ "XXX_p_FRONT", "192.168.98.64/26,192.168.99.64/26", "tcp", "666", "667", "Ingress" ],
-       [ "nic_0", "192.168.98.64/26,192.168.99.64/26", "tcp", "666", "667", "Ingress" ],
-       [ "nic_0", "nic_0", "tcp", "53", "53", "Egress" ],
-       [ "nic_0", "nic_0", "udp", "53", "53", "Egress" ]
-    ]
+      "appserver" : [
+        [ "XXX_p_FRONT", "192.168.98.64/26,192.168.99.64/26", "tcp", "666", "667", "Ingress" ],
+        [ "nic_0", "192.168.98.64/26,192.168.99.64/26", "tcp", "666", "667", "Ingress" ],
+        [ "nic_0", "{role:dnsserver}", "tcp", "53", "53", "Egress" ],
+        [ "nic_0", "{role:dnsserver}", "udp", "53", "53", "Egress" ]
+      ]
+    }
   }
 }
 ```
