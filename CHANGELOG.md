@@ -2,6 +2,10 @@
 
 This file is used to list changes made in each version of CsFirewall.
 
+## 0.6.0
+
+* Support of hostbased iptable firewalls
+
 ## 0.5.0
 
 * Egress firewall rules are also supported now
