@@ -44,13 +44,17 @@ end
 # Get rules from cloudstack
 csapi = setup_csapi(node['cloudstack']['url'],node['cloudstack']['APIkey'],node['cloudstack']['SECkey'])
 
-# Firewall
-Chef::Log.info("Getting firewall rules")
+# Firewall Ingress
+Chef::Log.info("Getting ingress firewall rules")
 fwrules = csapi_do(csapi,{ :command => "listFirewallRules" })["listfirewallrulesresponse"]["firewallrule"]
 
 # Port forward
 Chef::Log.info("Getting port forwarding rules")
 pfrules = csapi_do(csapi,{:command => "listPortForwardingRules"})["listportforwardingrulesresponse"]["portforwardingrule"]
+
+# Firewall Egress
+Chef::Log.info("Getting egress firewall rules")
+egressrules = csapi_do(csapi,{ :command => "listEgressFirewallRules" })["listegressfirewallrulesresponse"]["firewallrule"]
 
 # Networks
 networks = Hash.new
@@ -187,6 +191,44 @@ nodes.each do |n|
     end #tag
   end # unmanage
 end #node
+
+# Egress rules
+nodes = search(:node, "cloudstack_firewall_egress")
+egresswork = Hash.new
+
+nodes.each do |n|
+  unmanaged = false
+  if ( n["cloudstack"]["firewall"] != nil ) then
+    unmanaged = n["cloudstack"]["firewall"]["unmanaged"]
+  end
+  if ( unmanaged != true ) then
+    Chef::Log.info("Found egress rules for host: #{n.name}")
+    # Get egress rules from host
+    n["cloudstack"]["firewall"]["egress"] do |tag,ruleset|
+      ruleset.each do |rule|
+        # Expand interface references to network names
+        if ( rule[0] =~ /^nic_(\d+)$/) then
+          index = $1.to_i
+          name = n.name.downcase
+          if ( machines[name] == nil ) then
+            name.sub!(/\..*$/,"") # Strip domain
+          end
+          if ( machines[name] == nil ) then
+            Chef::Log.error("Machine #{n.name} or #{name} cannot be found via cloudstack api")
+            network = ""
+          else
+            network = machines[name]["nic"][index]["networkname"]
+          end
+          Chef::Log.info("#{name}->nic_#{index} expanded to network '#{network}'.")
+        else
+          network = rule[0]
+        end
+        egresswork["network"] = true
+      end #ruleset
+    end # egress
+  end #unmanged
+end #nodes
+
 
 # This should probably be a partial search, but I don't get the documentation 
 # for that feature
