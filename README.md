@@ -51,6 +51,14 @@ e.g.
     <td><tt></tt></td>
   </tr>
   <tr>
+    <td><tt>['cloudstack']['firewall']['unmanaged']</tt></td>
+    <td>Object</td>
+    <td>If set to true, this node will not be considered when enumerating 
+        firewall rules
+    </td>
+    <td><tt>False</tt></td>
+  </tr>
+  <tr>
     <td><tt>['cloudstack']['firewall']['cleanup']</tt></td>
     <td>Boolean</td>
     <td>
