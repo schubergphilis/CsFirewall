@@ -73,16 +73,14 @@ e.g.
     <td>Note, use a unique tag per role to prevent roles overwriting each other
     This array holds the actual firewall and portnat rules
     Each of the rules is specified in the following format:
-    <table>
-      <tr>
-        <td>IP address</td>
-        <td>Protocol (tcp|udp)</td>
-        <td>CIDR block</td>
-        <td>Start port public</td>
-        <td>End port public</td>
-        <td>Start port private<td>
-      </tr>
-    </table>
+    <ul>
+      <li>IP address
+      <li>Protocol (tcp|udp)
+      <li>CIDR block
+      <li>Start port public
+      <li>End port public
+      <li>Start port private
+    </ul>
     E.g. to specify that external TCP port 80 and 81 on ip 1.2.3.4 have to be allowed publicly and forwarded to port 8080 and 8081 specify:<br>
     [ [ "1.2.3.4", "tcp", "0.0.0.0/0", "80", "81", "8080" ] ]<br>
     </td>
@@ -94,24 +92,22 @@ e.g.
     <td>Note, use a unique tag per role to prevent roles overwriting each other
     This array holds the actual firewall and portnat rules
     Each of the rules is specified in the following format:
-    <table>
-      <tr>
-        <td>Network</td>
-        <td>CIDR block</td>
-        <td>Protocol (tcp|udp|icmp)</td>
-        <td>Start port|icmp type </td>
-        <td>End port|icmp code</td>
-      </tr>
-    </table>
     <ul>
-	<li>The keyword nic_# will be replaced with the network the machine is in if nic_# is found in the network field
+      <td>Network
+      <td>CIDR block
+      <td>Protocol (tcp|udp|icmp)
+      <td>Start port|icmp type
+      <td>End port|icmp code
+    </ul>
+		Notes:
+    <ul>
+			<li>The keyword nic_# will be replaced with the network the machine is in if nic_# is found in the network field
     </ul>
     E.g. to specify that tcp and udp port 53 traffic and all icmp traffic should be allowed out
-    [ 
-      [ "nic_0", "0.0.0.0/0", "tcp", "53", "53" ],
-      [ "nic_0", "0.0.0.0/0", "udp", "53", "53" ],
-      [ "nic_0", "0.0.0.0/0", "imcp", "-1", "-1" ],
-      [
+    [<br> 
+    &nbsp;&nbsp;[ "nic_0", "0.0.0.0/0", "tcp", "53", "53" ],<br>
+    &nbsp;&nbsp;[ "nic_0", "0.0.0.0/0", "udp", "53", "53" ],<br>
+    &nbsp;&nbsp;[ "nic_0", "0.0.0.0/0", "imcp", "-1", "-1" ],<br>
     ]<br>
     </td>
     <td><tt>Empty</tt></td>
@@ -146,16 +142,14 @@ e.g.
     <td>Use a unique tag to prevent roles from overwriting firewall rules from other roles
     This array holds the actual network ACL rules for this node
     Each of the rules is specified in the following format:
-    <table>
-      <tr>
-        <td>Network name (or nic_#)</td>
-        <td>CIDR block (may contain nic_#)</td>
-        <td>Protocol (tcp|udp|icmp)</td>
-        <td>Start port or icmp type</td>
-        <td>End port or icmp code</td>
-        <td>Direction (Ingress|Egress) *Mind the capital*<td>
-      </tr>
-    </table>
+    <ul>
+      <li>Network name (or nic_#)
+      <li>CIDR block (may contain nic_#)
+      <li>Protocol (tcp|udp|icmp)
+      <li>Start port or icmp type
+      <li>End port or icmp code
+      <li>Direction (Ingress|Egress) *Mind the capital*, may be command sparated<td>
+    </ul>
     <ul>
 	<li>The keyword nic_# will be replaced with the network the machine is in if nic_# is found in the network field
         <li>Node searches can be specified by using curly braches ({}), e.g. {role:domain_controller}, will expand to a list of chef IP addresses of machines with the role domain controller
@@ -171,8 +165,8 @@ e.g.
     [ <br>
 		&nbsp;&nbsp;	[ "XXX_p_FRONT", "192.168.98.64/26,192.168.99.64/26", "tcp", "666", "667", "Ingress" ], <br>
     &nbsp;&nbsp;  [ "nic_0", "192.168.98.64/26,192.168.99.64/26", "tcp", "666", "667", "Ingress" ], <br>
-    &nbsp;&nbsp;  [ "nic_0", "{role:dnsserver}", "tcp", "53", "53", "Egress" ], <br>
-    &nbsp;&nbsp;  [ "nic_0", "{role:dnsserver}", "udp", "53", "53", "Egress" ], <br>
+    &nbsp;&nbsp;  [ "nic_0", "{role:dnsserver}", "tcp", "53", "53", "Ingress,Egress" ], <br>
+    &nbsp;&nbsp;  [ "nic_0", "{role:dnsserver}", "udp", "53", "53", "Ingress,Egress" ], <br>
     &nbsp;&nbsp;  [ "nic_0", "{role:dbserver}", "tcp", "3306", "3306", "Egress" ] <br>
 		]<br>
     </td>

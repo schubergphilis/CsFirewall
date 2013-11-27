@@ -42,7 +42,7 @@ module ApiLib
     begin
       json = api.get(params).body
     rescue
-      error = "Cloud Stck API returned an error: #{$!}"
+      error = "Cloud Stack API returned an error: #{$!}"
       Chef::Log.error(error)
       if ( abort_on_error ) then
         abort(error)

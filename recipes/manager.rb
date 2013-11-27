@@ -102,7 +102,7 @@ cached_searches = Hash.new()
 # Firewall rules go first
 nodes.each do |n|
   unmanaged = n["cloudstack"]["firewall"]["unmanaged"]
-  if ( unmanaged != "true" ) then
+  if ( unmanaged != true && unmanaged != "true" ) then
     Chef::Log.info("Found ingress firewall rules for host: #{n.name}")
     fw_work = true
     # Get all ingress rules
@@ -118,76 +118,87 @@ nodes.each do |n|
         found = false
         # Expand search if found
         cidrlist = expand_search(fw[2])
-        # Check for a firewall rule
-        fwrules.each do |fwrule|
-          #Chef::Log.info(fwrule)
-          if ( ( not found ) &&
-            fw[0] == fwrule["ipaddress"] &&
-            fw[1] == fwrule["protocol"] &&
-            cidrlist == fwrule["cidrlist"] &&
-            fw[3] == fwrule["startport"] &&
-            fw[4] == fwrule["endport"] 
-          ) then
-            # If a rule is found it means we get to keep it, unless it is a rule we have to create
-            found = true
-            if ( fwrule["action"] != "create" ) then
-              fwrule["action"] = "keep"
-              Chef::Log.info("Firewall rule found, keeping")
-            end
-          end
-        end #fwrules
-        if ( not found ) then
-          # If we have not found a rule, we have to create one
-          fwrules << {
-            :ipaddress => fw[0],
-            :protocol => fw[1],
-            :cidrlist => cidrlist,
-            :startport => fw[3],
-            :endport => fw[4],
-            :action => "create"
-          }
-          Chef::Log.info("Firewall rule will be created")
-        end
-        
-        # If a destination port is set in the ingress rule, we have to have a port forward rule
-        if ( fw[5] != nil && fw[5] != "" ) then
-          pf_work = true
-          found = false
-          pfrules.each do |pfrule|
-            if ( (not found ) &&
-                n.hostname == pfrule["virtualmachinename"] &&
-                fw[0] == pfrule["ipaddress"] && 
-                fw[1] == pfrule["protocol"] &&
-                fw[3] == pfrule["publicport"] && 
-                fw[4] == pfrule["publicendport"] &&
-                fw[5] == pfrule["privateport"]
-              ) then
-              # If a rule if found we keep it unless we have to create it
-              found = true
-              if ( pfrule["action"] != "create" ) then
-                pfrule["action"] = "keep"
-                Chef::Log.info("Port forward rule found, keeping")
-              end
-            end
-          end #pfrules
-          if ( not found ) then
-            # Create a rule if we don't have it
-            pfrules << {
-              :virtualmachinename => n.hostname,
-              :ipaddress => fw[0],
-              :protocol => fw[1],
-              :publicport => fw[3],
-              :publicendport => fw[4],
-              :privateport => fw[5],
-              :privateendport => (fw[5].to_i + fw[4].to_i - fw[3].to_i).to_s,
-              :action => "create"
-            }
-            Chef::Log.info("Port forward rule will be created")
-          end
-        end #pf rule
-      end #ruleset
+				# Expand protocol
+				fw[1].split(/,/).each do |protocol|
+        	# Check for a firewall rule
+        	fwrules.each do |fwrule|
+          	#Chef::Log.info(fwrule)
+          	if ( ( not found ) &&
+            	fw[0] == fwrule["ipaddress"] &&
+            	protocol == fwrule["protocol"] &&
+            	cidrlist == fwrule["cidrlist"] &&
+            	fw[3] == fwrule["startport"] &&
+            	fw[4] == fwrule["endport"] 
+          	) then
+            	# If a rule is found it means we get to keep it, unless it is a rule we have to create
+            	found = true
+            	if ( fwrule["action"] != "create" ) then
+              	fwrule["action"] = "keep"
+								fwrule["CsFirewallTag"] = tag
+              	Chef::Log.info("Firewall rule found, keeping")
+            	end
+          	end
+        	end #fwrules
+        	if ( not found ) then
+						if ( cidrlist =~ /127\.0\.0\.1\/32/ )
+							Chef::Log.warn("CIDR block contains 127.0.0.1/32, likely cause: failed search, not creating rule")
+						else
+          		# If we have not found a rule, we have to create one
+          		fwrules << {
+            		:ipaddress => fw[0],
+            		:protocol => protocol,
+            		:cidrlist => cidrlist,
+            		:startport => fw[3],
+            		:endport => fw[4],
+            		:action => "create"
+          		}
+          		Chef::Log.info("Firewall rule will be created")
+						end # 127.0.0.1
+        	end # found
+        	
+        	# If a destination port is set in the ingress rule, we have to have a port forward rule
+        	if ( fw[5] != nil && fw[5] != "" && cidrlist !~ /127\.0\.0\.1\/32/ ) then
+          	pf_work = true
+          	found = false
+          	pfrules.each do |pfrule|
+            	if ( (not found ) &&
+                	n.hostname == pfrule["virtualmachinename"] &&
+                	fw[0] == pfrule["ipaddress"] && 
+                	protocol == pfrule["protocol"] &&
+                	fw[3] == pfrule["publicport"] && 
+                	fw[4] == pfrule["publicendport"] &&
+                	fw[5] == pfrule["privateport"]
+              	) then
+              	# If a rule if found we keep it unless we have to create it
+              	found = true
+              	if ( pfrule["action"] != "create" ) then
+                	pfrule["action"] = "keep"
+									pfrule["CsFirewallTag"] = tag
+                	Chef::Log.info("Port forward rule found, keeping")
+              	end
+            	end
+          	end #pfrules
+          	if ( not found ) then
+            	# Create a rule if we don't have it
+            	pfrules << {
+              	:virtualmachinename => n.hostname,
+              	:ipaddress => fw[0],
+              	:protocol => protocol,
+              	:publicport => fw[3],
+              	:publicendport => fw[4],
+              	:privateport => fw[5],
+              	:privateendport => (fw[5].to_i + fw[4].to_i - fw[3].to_i).to_s,
+              	:action => "create"
+            	}
+            	Chef::Log.info("Port forward rule will be created")
+          	end
+        	end #pf rule
+      	end #ruleset
+			end #protocol
     end #tag
-  end # unmanage
+	else
+		Chef::Log.warn("Node #{n["hostname"]} unmanaged, skipping")
+  end # unmanaged
 end #node
 
 # Egress rules
@@ -199,7 +210,7 @@ nodes.each do |n|
   if ( n["cloudstack"]["firewall"] != nil ) then
     unmanaged = n["cloudstack"]["firewall"]["unmanaged"]
   end
-  if ( unmanaged != true ) then
+  if ( unmanaged != true && unmanaged != "true" ) then
     Chef::Log.info("Found egress rules for host: #{n.name}")
     # Get egress rules from host
     n["cloudstack"]["firewall"]["egress"].each do |tag,ruleset|
@@ -226,55 +237,77 @@ nodes.each do |n|
         #Expand seraches in cidrblock
         cidrblock = expand_search(rule[1])
 
-        # Search for matching egress rule
-        found = false
-        if ( egressrules[network] ) then
-          egressrules[network].each do |erule|
-            if ( ( not found ) &&
-              cidrblock == erule["cidrlist"] &&
-              rule[2] == erule["protocol"] &&
-              ( rule[3] == erule["startport"] || rule[3].to_i == erule["icmptype"] ) &&
-              ( rule[4] == erule["endport"] || rule[4].to_i == erule["icmpcode"] ) 
-            ) then
-              found = true
-              if ( erule["action"] != "create" ) then
-                erule["action"] = "keep"
-                Chef::Log.info("Egress rule found, keeping")
-              end
-            end 
-          end #erule
-        end #if
-        if ( not egressrules[network] ) then
-          Chef::Log.fatal("Network #{network} is not in the API scope, we will probably fail")
-          egressrules[network] = []
-          networks[network] = networks[network] || Hash.new
-        end
-        if ( not found ) then
-          # Need to create egress fule
-          Chef::Log.info("Egress rule not found, creating")
-          if ( rule[2] == "icmp" ) then
-            egressrules[network] << {
-              "networkid" => networks[network]["id"] || nil,
-              "cidrlist" => cidrblock,
-              "protocol" => rule[2],
-              "imcptype" => rule[3],
-              "icmpcode" => rule[4],
-              "action" => "create"
-            }
-          else 
-            egressrules[network] << {
-              "networkid" => networks[network]["id"],
-              "cidrlist" => cidrblock,
-              "protocol" => rule[2],
-              "startport" => rule[3],
-              "endport" => rule[4],
-              "action" => "create"
-            }
-          end
-        end # not found
+				# Expand protocol
+				rule[2].split(/,/).each do |protocol|
+        	# Search for matching egress rule
+        	found = false
+        	if ( egressrules[network] ) then
+          	egressrules[network].each do |erule|
+            	if ( ( not found ) &&
+              	cidrblock == erule["cidrlist"] &&
+              	protocol == erule["protocol"] &&
+              	( rule[3] == erule["startport"] || rule[3].to_i == erule["icmptype"] ) &&
+              	( rule[4] == erule["endport"] || rule[4].to_i == erule["icmpcode"] ) 
+            	) then
+              	found = true
+              	if ( erule["action"] != "create" ) then
+                	erule["action"] = "keep"
+									erule["CsFirewallTag"] = tag
+                	Chef::Log.info("Egress rule found, keeping")
+              	end
+            	end 
+          	end #erule
+        	end #if
+        	if ( not egressrules[network] ) then
+          	Chef::Log.fatal("Network #{network} is not in the API scope, we will probably fail")
+          	egressrules[network] = []
+          	networks[network] = networks[network] || Hash.new
+        	end
+        	if ( not found ) then
+						if ( cidrlist =~ /127\.0\.0\.1\/32/ ) then
+							Chef::Log.warn("CIDRlist contains 127.0.0.1/32, probable cause: failed search, not adding rule")
+						else 
+          		# Need to create egress fule
+          		Chef::Log.info("Egress rule not found, creating")
+          		if ( protocol == "icmp" ) then
+            		egressrules[network] << {
+              		"networkid" => networks[network]["id"] || nil,
+              		"cidrlist" => cidrblock,
+              		"protocol" => protocol,
+              		"imcptype" => rule[3],
+              		"icmpcode" => rule[4],
+              		"action" => "create",
+									"tags" => [
+										{
+											:key => "CsFirewall",
+											:value => tag
+										}
+									]
+            		}
+          		else 
+            		egressrules[network] << {
+              		"networkid" => networks[network]["id"],
+              		"cidrlist" => cidrblock,
+              		"protocol" => protocol,
+              		"startport" => rule[3],
+              		"endport" => rule[4],
+              		"action" => "create",
+									"tags" => [
+										{
+											:key => "CsFirewall",
+											:value => tag
+										}
+									]
+            		}
+							end # 127.0.0.1
+          	end # found
+        	end # not found
+			  end #protocol
       end #ruleset
     end # egress
-  end #unmanged
+	else
+		Chef::Log.warn("Node #{n["hostname"]} unmanaged, skipping")
+  end #unmanaged
 end #nodes
 
 
@@ -288,7 +321,7 @@ nodes.each do |n|
   if ( n["cloudstack"]["firewall"] != nil ) then
     unmanaged = n["cloudstack"]["firewall"]["unmanaged"]
   end
-  if ( unmanaged != "true" ) then
+  if ( unmanaged != true && unmanaged != "true" ) then
     Chef::Log.info("Found acls for host: #{n.name}")
     # Get acls from node
     tags = Hash.new()
@@ -319,53 +352,67 @@ nodes.each do |n|
         acl_work[network] = true
 
         # Expand searches in cidrblock
-        cidrblock = expand_search(cidrblock)
+        cidrblock = expand_search(aclsoll[1])
 
-        found = false
-        # Check for an existing acl
-        acls[network].each do |acl|
-          if ( ( not found ) &&
-            cidrblock == acl["cidrlist"] &&
-            aclsoll[2] == acl["protocol"] &&
-            ( aclsoll[3] == acl["startport"] || aclsoll[3].to_i == acl["icmptype"] ) &&
-            ( aclsoll[4] == acl["endport"]   || aclsoll[4].to_i == acl["icmpcode"] ) &&
-            aclsoll[5] == acl["traffictype"]
-          ) then
-            found = true
-            if ( acl["action"] != "create" ) then
-              acl["action"] = "keep"
-              Chef::Log.info("ACL rule found, keeping")
-            end
-          end
-        end #acls
-        if ( not found ) then
-          # ACL needs to be created
-          Chef::Log.info("ACL rule not found, creating")
-          if ( aclsoll[2] == "icmp" ) then
-            #Chef::Log.info(aclsoll)
-            acls[network] << {
-              :networkid => networks[network]["id"],
-              :cidrlist => cidrblock,
-              :protocol => aclsoll[2],
-              :icmptype => aclsoll[3],
-              :icmpcode => aclsoll[4],
-              :traffictype => aclsoll[5],
-              :action => "create"
-            }
-          else
-            acls[network] << {
-              :networkid => networks[network]["id"],
-              :cidrlist => cidrblock,
-              :protocol => aclsoll[2],
-              :startport => aclsoll[3],
-              :endport => aclsoll[4],
-              :traffictype => aclsoll[5],
-              :action => "create"
-            }
-          end
-        end #found
+				# Support multi-direction
+				aclsoll[5].split(/,/).each do |traffictype|
+
+					# Support multi-protocol
+					aclsoll[2].split(/,/).each do |protocol|	
+
+        		found = false
+        		# Check for an existing acl
+        		acls[network].each do |acl|
+          		if ( ( not found ) &&
+            		cidrblock == acl["cidrlist"] &&
+            		protocol == acl["protocol"] &&
+            		( aclsoll[3] == acl["startport"] || aclsoll[3].to_i == acl["icmptype"] ) &&
+            		( aclsoll[4] == acl["endport"]   || aclsoll[4].to_i == acl["icmpcode"] ) &&
+            		traffictype == acl["traffictype"]
+          		) then
+            		found = true
+            		if ( acl["action"] != "create" ) then
+              		acl["action"] = "keep"
+									acl["CsFirewallTag"] = tag
+              		Chef::Log.info("ACL rule found, keeping")
+            		end
+          		end
+        		end #acls
+        		if ( not found ) then
+							if ( cidrblock =~ /127\.0\.0\.1\/32/ ) then
+								Chef::Log.warn("CIDRblock contains 127.0.0.1/32, probable cause: failed search. Not adding rule")
+							else
+          			# ACL needs to be created
+          			Chef::Log.info("ACL rule not found, creating")
+          			if ( protocol == "icmp" ) then
+            			acls[network] << {
+              			:networkid => networks[network]["id"],
+              			:cidrlist => cidrblock,
+              			:protocol => protocol,
+              			:icmptype => aclsoll[3],
+              			:icmpcode => aclsoll[4],
+              			:traffictype => traffictype,
+              			:action => "create"
+            			}
+          			else
+            			acls[network] << {
+              			:networkid => networks[network]["id"],
+              			:cidrlist => cidrblock,
+              			:protocol => protocol,
+              			:startport => aclsoll[3],
+              			:endport => aclsoll[4],
+              			:traffictype => traffictype,
+              			:action => "create"
+            			}
+          			end #icmp
+							end #127.0.0.1
+        		end #found
+					end # protocol
+				end #traffictype
       end #aclsoll
     end #tags
+	else
+		Chef::Log.warn("Node #{n["hostname"]} unmanaged, skipping")
   end #unmanaged
 end #nodes
 
@@ -390,8 +437,9 @@ if ( fw_work ) then
         jobs.push job["createfirewallruleresponse"]["jobid"]
       end
     elsif ( fwrule["action"] == "keep" ) then
-      # Do nothing
+      # Keep firewall rule, but tag
       Chef::Log.info("Keeping firewall rule: #{fwrule["cidrlist"]} -> #{fwrule["ipaddress"]}:#{fwrule["protocol"]} #{fwrule["startport"]}-#{fwrule["endport"]}")
+			#csapi_do(csapi,{:command => "createTags", :resourceIds => fwrule["id"], :resourceType => "FirewallRule", :tags => [ { :key => "CsFirewall", :value => fwrule["CsFirewallTag"] } ] })
     elsif node["cloudstack"]["firewall"]["cleanup"] == true then
       Chef::Log.info("Deleting firewall rule: #{fwrule["cidrlist"]} -> #{fwrule["ipaddress"]}:#{fwrule["protocol"]} #{fwrule["startport"]}-#{fwrule["endport"]} (id: #{fwrule["id"]})")
       params = {
@@ -427,8 +475,9 @@ if ( pf_work ) then
         jobs.push job["createportforwardingruleresponse"]["jobid"]
       end
     elsif ( pfrule["action"] == "keep" ) then
-      # Do nothing
+      # Tag rule
       Chef::Log.info("Keeping port forward rule: #{pfrule["protocol"]} #{pfrule["ipaddress"]}:#{pfrule["publicport"]}-#{pfrule["publicendport"]} -> #{pfrule["virtualmachinename"]}:#{pfrule["privateport"]}-#{pfrule["privateendport"]}")
+			#csapi_do(csapi,{:command => "createTags", :resourceIds => pfrule["id"], :resourceType => "PortForwardingRule", :tags => [ { :key => "CsFirewall", :value => pfrule["CsFirewallTag"] } ] })
     elsif node["cloudstack"]["firewall"]["cleanup"] == true then
       Chef::Log.info("Deleting port forward rule: #{pfrule["protocol"]} #{pfrule["ipaddress"]}:#{pfrule["publicport"]}-#{pfrule["publicendport"]} -> #{pfrule["virtualmachinename"]}:#{pfrule["privateport"]}-#{pfrule["privateendport"]} (d: #{pfrule["id"]})")
       params = {
@@ -469,12 +518,13 @@ egresswork.each do |nwname, work|
         jobs.push job["createegressfirewallruleresponse"]["jobid"]
       end
     elsif ( rule["action"] == "keep" ) then
-      # We need to keep this rule
+      # We need to keep and tag this rule
       if ( rule["protocol"] == "icmp" ) then
         Chef::Log.info("Keeping egress rule on network #{nwname}: 0.0.0.0/0->#{rule["cidrlist"]} #{rule["protocol"]} #{rule["icmptype"]}/#{rule["icmpcode"]}")
       else
         Chef::Log.info("Keeping egress rule on network #{nwname}: 0.0.0.0/0->#{rule["cidrlist"]} #{rule["protocol"]} #{rule["startport"]}/#{rule["endport"]}")
       end
+			#csapi_do(csapi,{:command => "createTags", :resourceIds => rule["id"], :resourceType => "EgressFirewallRule", :tags => [ { :key => "CsFirewall", :value => rule["CsFirewallTag"] } ] })
     elsif ( node["cloudstack"]["firewall"]["cleanup"] == true ) then
       # We can delete this rule
       if ( rule["protocol"] == "icmp" ) then
