@@ -511,7 +511,7 @@ acl_work.each do |nwname, work|
 		) || ( 
 			# We have unmanaged acls and our network is not on it
 			node['cloudstack']['firewall']['unmanagedacls'] && 
-			not node['cloudstack']['firewall']['unmanagedacls'].include?(nwname)
+			! node['cloudstack']['firewall']['unmanagedacls'].include?(nwname)
 		)
 	) then
   	acls[nwname].uniq.each do |acl|
