@@ -499,62 +499,79 @@ end #egresswork
 
 # Next, lets manage acls
 acl_work.each do |nwname, work|
-  acls[nwname].uniq.each do |acl|
-    #Chef::Log.info(acl)
-    if ( acl[:action] == "create" ) then
-      # Time to create an acl
-      if ( acl["protocol"] == "icmp" ) then
-        Chef::Log.info("Creating acl on network #{nwname}: #{acl[:cidrlist]} #{acl[:protocol]} #{acl[:icmptype]}/#{acl[:icmpcode]} #{acl[:traffictype]}")
-      else
-        Chef::Log.info("Creating acl on network #{nwname}: #{acl[:cidrlist]} #{acl[:protocol]} #{acl[:startport]}/#{acl[:endport]} #{acl[:traffictype]}")
-      end
-      params = {
-        :command => "createNetworkACL",
-        :networkid => acl[:networkid],
-        :cidrlist => acl[:cidrlist],
-        :protocol => acl[:protocol],
-        :traffictype => acl[:traffictype]
-      }
-      if ( acl[:protocol] == "icmp" ) then
-        params[:icmptype] = acl[:icmptype]
-        params[:icmpcode] = acl[:icmpcode]
-      else
-        params[:startport] = acl[:startport]
-        params[:endport] = acl[:endport]
-      end
-      job = csapi_do(csapi,params)
-      if ( job != nil ) then
-        jobs.push job["createnetworkaclresponse"]["jobid"]
-      end
-    elsif ( acl["action"] == "keep" ) then
-      # Do nothing
-      if ( acl["protocol"] == "icmp" ) then
-        Chef::Log.info("Keeping acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["icmptype"]}/#{acl["icmpcode"]} #{acl["traffictype"]}")
-      else
-        Chef::Log.info("Keeping acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["startport"]}/#{acl["endport"]} #{acl["traffictype"]}")
-      end
-    elsif node["cloudstack"]["firewall"]["cleanup"] == true then
-      if ( acl["protocol"] == "icmp" ) then
-        Chef::Log.info("Deleting acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["icmptype"]}/#{acl["icmpcode"]} #{acl["traffictype"]} (id: #{acl["id"]})")
-      else
-        Chef::Log.info("Deleting acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["startport"]}/#{acl["endport"]} #{acl["traffictype"]} (id: #{acl["id"]})")
-      end
-      Chef::Log.info("Deleting port forward rule: #{acl["protocol"]} #{acl["ipaddress"]}:#{acl["publicport"]}-#{acl["publicendport"]} -> #{acl["virtualmachinename"]}:#{acl["privateport"]}-#{acl["privateendport"]} (d: #{acl["id"]})")
-      params = {
-        :command => "deleteNetworkACL",
-        :id => acl["id"]
-      }
-      jobs.push csapi_do(csapi,params)["deletenetworkaclresponse"]["jobid"]
-    else 
-      if ( acl["protocol"] == "icmp" ) then
-        Chef::Log.info("Ignoring acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["icmptype"]}/#{acl["icmpcode"]} #{acl["traffictype"]} (id: #{acl["id"]}, (cleanup disabled)")
-      else
-        Chef::Log.info("Ignoring acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["startport"]}/#{acl["endport"]} #{acl["traffictype"]} (id: #{acl["id"]}, (cleanup disabled)")
-      end
-    end
-  end #acl
+	if ( 
+		( 
+			# We don't have a selection of managed or unmanaged ACLs
+			node['cloudstack']['firewall']['managedacls'] == nil &&
+			node['cloudstack']['firewall']['unmanagedacls']
+		) || (
+			# We have managed acls and our network is on it
+			node['cloudstack']['firewall']['managedacls'] && 
+			node['cloudstack']['firewall']['managedacls'].include?(nwname) 
+		) || ( 
+			# We have unmanaged acls and our network is not on it
+			node['cloudstack']['firewall']['unmanagedacls'] && 
+			not node['cloudstack']['firewall']['unmanagedacls'].include?(nwname)
+		)
+	) then
+  	acls[nwname].uniq.each do |acl|
+		
+    	#Chef::Log.info(acl)
+    	if ( acl[:action] == "create" ) then
+      	# Time to create an acl
+      	if ( acl["protocol"] == "icmp" ) then
+        	Chef::Log.info("Creating acl on network #{nwname}: #{acl[:cidrlist]} #{acl[:protocol]} #{acl[:icmptype]}/#{acl[:icmpcode]} #{acl[:traffictype]}")
+      	else
+        	Chef::Log.info("Creating acl on network #{nwname}: #{acl[:cidrlist]} #{acl[:protocol]} #{acl[:startport]}/#{acl[:endport]} #{acl[:traffictype]}")
+      	end
+      	params = {
+        	:command => "createNetworkACL",
+        	:networkid => acl[:networkid],
+        	:cidrlist => acl[:cidrlist],
+        	:protocol => acl[:protocol],
+        	:traffictype => acl[:traffictype]
+      	}
+      	if ( acl[:protocol] == "icmp" ) then
+        	params[:icmptype] = acl[:icmptype]
+        	params[:icmpcode] = acl[:icmpcode]
+      	else
+        	params[:startport] = acl[:startport]
+        	params[:endport] = acl[:endport]
+      	end
+      	job = csapi_do(csapi,params)
+      	if ( job != nil ) then
+        	jobs.push job["createnetworkaclresponse"]["jobid"]
+      	end
+    	elsif ( acl["action"] == "keep" ) then
+      	# Do nothing
+      	if ( acl["protocol"] == "icmp" ) then
+        	Chef::Log.info("Keeping acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["icmptype"]}/#{acl["icmpcode"]} #{acl["traffictype"]}")
+      	else
+        	Chef::Log.info("Keeping acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["startport"]}/#{acl["endport"]} #{acl["traffictype"]}")
+      	end
+    	elsif node["cloudstack"]["firewall"]["cleanup"] == true then
+      	if ( acl["protocol"] == "icmp" ) then
+        	Chef::Log.info("Deleting acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["icmptype"]}/#{acl["icmpcode"]} #{acl["traffictype"]} (id: #{acl["id"]})")
+      	else
+        	Chef::Log.info("Deleting acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["startport"]}/#{acl["endport"]} #{acl["traffictype"]} (id: #{acl["id"]})")
+      	end
+      	Chef::Log.info("Deleting port forward rule: #{acl["protocol"]} #{acl["ipaddress"]}:#{acl["publicport"]}-#{acl["publicendport"]} -> #{acl["virtualmachinename"]}:#{acl["privateport"]}-#{acl["privateendport"]} (d: #{acl["id"]})")
+      	params = {
+        	:command => "deleteNetworkACL",
+        	:id => acl["id"]
+      	}
+      	jobs.push csapi_do(csapi,params)["deletenetworkaclresponse"]["jobid"]
+    	else 
+      	if ( acl["protocol"] == "icmp" ) then
+        	Chef::Log.info("Ignoring acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["icmptype"]}/#{acl["icmpcode"]} #{acl["traffictype"]} (id: #{acl["id"]}, (cleanup disabled)")
+      	else
+        	Chef::Log.info("Ignoring acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["startport"]}/#{acl["endport"]} #{acl["traffictype"]} (id: #{acl["id"]}, (cleanup disabled)")
+      	end
+    	end
+  	end #acl
+	end # managed or unmanaged?
 end #aclwork
-
+	
 # Wait for all jobs to finish
 jobs.each do |job|
   params = {
