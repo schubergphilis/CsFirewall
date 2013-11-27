@@ -141,7 +141,7 @@ nodes.each do |n|
         	end #fwrules
         	if ( not found ) then
 						if ( cidrlist =~ /127\.0\.0\.1\/32/ )
-							Chef::Log.warn("CIDR block contains 127.0.0.1/32, likely cause: failed search, not crating rule")
+							Chef::Log.warn("CIDR block contains 127.0.0.1/32, likely cause: failed search, not creating rule")
 						else
           		# If we have not found a rule, we have to create one
           		fwrules << {
