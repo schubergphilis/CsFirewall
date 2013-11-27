@@ -503,7 +503,7 @@ acl_work.each do |nwname, work|
 		( 
 			# We don't have a selection of managed or unmanaged ACLs
 			node['cloudstack']['firewall']['managedacls'] == nil &&
-			node['cloudstack']['firewall']['unmanagedacls']
+			node['cloudstack']['firewall']['unmanagedacls'] == nil
 		) || (
 			# We have managed acls and our network is on it
 			node['cloudstack']['firewall']['managedacls'] && 
