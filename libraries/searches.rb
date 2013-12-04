@@ -46,7 +46,7 @@ module SearchesLib
         expanded = search_to_cidrlist($1)
         @@cached_searches[$1] = expanded
       end
-      exp.gsub!(/\{#{$1}\}/,expanded)
+      exp.gsub!("{#{$1}}",expanded)
     end # while
     if ( rule != exp ) then
       Chef::Log.info("Expanded #{rule} to #{exp}")
