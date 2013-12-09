@@ -2,6 +2,11 @@
 
 This file is used to list changes made in each version of CsFirewall.
 
+## 0.9.0
+
+* Now using chef_gem instead of gem_package to install dependant gem
+* Fixed #8, cloudstack API helper now waits for Async calss to finish before proceeding
+
 ## 0.8.0
 
 * searches that do not expand to a result expand to 127.0.0.1/32

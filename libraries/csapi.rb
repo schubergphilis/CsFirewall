@@ -14,9 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 module ApiLib
   require 'rubygems'
-  require 'cloudstack_helper'
+  begin
+    require 'cloudstack_helper'
+  rescue LoadError
+    Chef::Log.fatal "Unable to load cloudstack_helper gem, this run will likely fail"
+  end
   require 'json'
 
   def setup_csapi(url='',apikey='',seckey='')
@@ -31,7 +36,7 @@ module ApiLib
     return  CloudStackHelper.new(:api_url => url,:api_key => apikey,:secret_key => seckey)
   end
 
-  def csapi_do(api = nil,params = nil, abort_on_error = false)
+  def csapi_do(api = nil,params = nil, abort_on_error = false, wait_for_async = false)
     if ( api == nil || params == nil ) then
       abort("No api object or parameter block provided")
     end
@@ -51,6 +56,35 @@ module ApiLib
       end
     end
 
-    return JSON.parse(json)
+    reply = JSON.parse(json)
+    if ( wait_for_async )
+      # Foind out job id
+      jobid = nil
+      reply.each do |key, val|
+        if ( jobid == nil ) then
+          jobid = val["jobid"]
+        end
+      end
+
+      if ( jobid == nil ) then
+        Chef::Log.fatal("Unable to find jobid, result: #{result}")
+        exit
+      else
+        params = {
+          :command => "queryAsyncJobResult",
+          :jobid => jobid
+        }
+        status = csapi_do(api,params)["queryasyncjobresultresponse"]
+        while ( status["jobstatus"] == 0 ) do 
+          Chef::Log.info("Status of job #{jobid} is #{status["jobstatus"]}")
+          sleep 1
+          status = csapi_do(api,params)["queryasyncjobresultresponse"]
+        end
+        Chef::Log.info("Job #{jobid} done, result: #{status["jobresult"]}.")
+        reply = status
+      end
+    end
+    
+    return reply
   end
 end

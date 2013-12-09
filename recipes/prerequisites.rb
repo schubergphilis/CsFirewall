@@ -21,7 +21,7 @@
 
 Chef::Log.info("Start of CsFirewall::prerequisites recipe")
 
-gem_package "cloudstack_helper" do
+chef_gem "cloudstack_helper" do
   action :install
   ignore_failure true
 end

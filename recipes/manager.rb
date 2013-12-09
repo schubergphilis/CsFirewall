@@ -20,14 +20,23 @@
 
 # This recipe is run by those nodes that manage the couldstack firewall rules
 
+Chef::Log.info("Start of CsFirewall::manager recipe")
+
+begin
+  require 'cloudstack_helper'
+rescue LoadError
+  chef_gem 'cloudstack_helper' do
+    action :install
+    ignore_failure true
+  end
+end
+
+include_recipe "CsFirewall::prerequisites"
+
 class Chef::Recipe
   include SearchesLib
   include ApiLib
 end
-
-Chef::Log.info("Start of CsFirewall::manager recipe")
-
-include_recipe "CsFirewall::prerequisites"
 
 if ( not node["cloudstack"]["url"]  ) then
   Chef::Log.fatal('CsFirewall:manage requires that a cloudstack URL is specified')
@@ -264,7 +273,7 @@ nodes.each do |n|
           	networks[network] = networks[network] || Hash.new
         	end
         	if ( not found ) then
-						if ( cidrlist =~ /127\.0\.0\.1\/32/ ) then
+						if ( cidrblock =~ /127\.0\.0\.1\/32/ ) then
 							Chef::Log.warn("CIDRlist contains 127.0.0.1/32, probable cause: failed search, not adding rule")
 						else 
           		# Need to create egress fule
@@ -432,10 +441,10 @@ if ( fw_work ) then
         :startport => fwrule[:startport],
         :endport => fwrule[:endport]
       }
-      job = csapi_do(csapi,params)
-      if ( job != nil ) then
-        jobs.push job["createfirewallruleresponse"]["jobid"]
-      end
+      job = csapi_do(csapi,params,false,true)
+      #if ( job != nil ) then
+      #  jobs.push job["createfirewallruleresponse"]["jobid"]
+      #end
     elsif ( fwrule["action"] == "keep" ) then
       # Keep firewall rule, but tag
       Chef::Log.info("Keeping firewall rule: #{fwrule["cidrlist"]} -> #{fwrule["ipaddress"]}:#{fwrule["protocol"]} #{fwrule["startport"]}-#{fwrule["endport"]}")
@@ -446,7 +455,8 @@ if ( fw_work ) then
         :command => "deleteFirewallRule",
         :id => fwrule["id"]
       }
-      jobs.push csapi_do(csapi,params)["deletefirewallruleresponse"]["jobid"]
+      csapi_do(csapi,params,false,true)
+      #jobs.push csapi_do(csapi,params)["deletefirewallruleresponse"]["jobid"]
     else 
       Chef::Log.info("NOT deleting firewall rule: #{fwrule["cidrlist"]} -> #{fwrule["ipaddress"]}:#{fwrule["protocol"]} #{fwrule["startport"]}-#{fwrule["endport"]} (cleanup disabled)")
     end
@@ -470,10 +480,11 @@ if ( pf_work ) then
         :privateport => pfrule[:privateport],
         :privateendport => pfrule[:privateendport]
       }
-      job = csapi_do(csapi,params)
-      if ( job != nil ) then
-        jobs.push job["createportforwardingruleresponse"]["jobid"]
-      end
+      csapi_do(csapi,params,false,true)
+      #job = csapi_do(csapi,params)
+      #if ( job != nil ) then
+      #  jobs.push job["createportforwardingruleresponse"]["jobid"]
+      #end
     elsif ( pfrule["action"] == "keep" ) then
       # Tag rule
       Chef::Log.info("Keeping port forward rule: #{pfrule["protocol"]} #{pfrule["ipaddress"]}:#{pfrule["publicport"]}-#{pfrule["publicendport"]} -> #{pfrule["virtualmachinename"]}:#{pfrule["privateport"]}-#{pfrule["privateendport"]}")
@@ -484,7 +495,8 @@ if ( pf_work ) then
         :command => "deletePortForwardingRule",
         :id => pfrule["id"]
       }
-      jobs.push csapi_do(csapi,params)["deleteportforwardingruleresponse"]["jobid"]
+      csapi_do(csapi,params,false,true)
+      #jobs.push csapi_do(csapi,params)["deleteportforwardingruleresponse"]["jobid"]
     else 
       Chef::Log.info("NOT deleting port forward rule: #{pfrule["protocol"]} #{pfrule["ipaddress"]}:#{pfrule["publicport"]}-#{pfrule["publicendport"]} -> #{pfrule["virtualmachinename"]}:#{pfrule["privateport"]}-#{pfrule["privateendport"]} (cleanup disabled)")
     end
@@ -513,10 +525,11 @@ egresswork.each do |nwname, work|
         params[:startport] = rule["startport"]
         params[:endport] = rule["endport"]
       end
-      job = csapi_do(csapi,params)
-      if ( job != nil ) then
-        jobs.push job["createegressfirewallruleresponse"]["jobid"]
-      end
+      csapi_do(csapi,params,false,true)
+      #job = csapi_do(csapi,params)
+      #if ( job != nil ) then
+      #  jobs.push job["createegressfirewallruleresponse"]["jobid"]
+      #end
     elsif ( rule["action"] == "keep" ) then
       # We need to keep and tag this rule
       if ( rule["protocol"] == "icmp" ) then
@@ -536,7 +549,8 @@ egresswork.each do |nwname, work|
         :command => "deleteEgressFirewallRule",
         :id => rule["id"]
       }
-      jobs.push csapi_do(csapi,params)["deleteegressfirewallruleresponse"]["jobid"]
+      csapi_do(csapi,params,false,true)
+      #jobs.push csapi_do(csapi,params)["deleteegressfirewallruleresponse"]["jobid"]
     else
       if ( rule["protocol"] == "icmp" ) then
         Chef::Log.info("Ignoring egress rule on network #{nwname}: 0.0.0.0/0->#{rule["cidrlist"]} #{rule["protocol"]} #{rule["icmptype"]}/#{rule["icmpcode"]} (cleanup disabled)")
@@ -588,10 +602,11 @@ acl_work.each do |nwname, work|
         	params[:startport] = acl[:startport]
         	params[:endport] = acl[:endport]
       	end
-      	job = csapi_do(csapi,params)
-      	if ( job != nil ) then
-        	jobs.push job["createnetworkaclresponse"]["jobid"]
-      	end
+      	csapi_do(csapi,params,false,true)
+      	#job = csapi_do(csapi,params)
+      	#if ( job != nil ) then
+        #  jobs.push job["createnetworkaclresponse"]["jobid"]
+      	#end
     	elsif ( acl["action"] == "keep" ) then
       	# Do nothing
       	if ( acl["protocol"] == "icmp" ) then
@@ -610,7 +625,8 @@ acl_work.each do |nwname, work|
         	:command => "deleteNetworkACL",
         	:id => acl["id"]
       	}
-      	jobs.push csapi_do(csapi,params)["deletenetworkaclresponse"]["jobid"]
+      	csapi_do(csapi,params,false,true)
+      	#jobs.push csapi_do(csapi,params)["deletenetworkaclresponse"]["jobid"]
     	else 
       	if ( acl["protocol"] == "icmp" ) then
         	Chef::Log.info("Ignoring acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["icmptype"]}/#{acl["icmpcode"]} #{acl["traffictype"]} (id: #{acl["id"]}, (cleanup disabled)")
