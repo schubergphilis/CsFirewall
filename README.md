@@ -282,7 +282,7 @@ default properties:
 
 Contributing
 ------------
-1. Fork the repository on https://github.schubergphilis.com/SBP-Cookbooks/CsFirewall
+1. Fork the repository on https://www.github.com/schubergphilis/CsFirewall
 2. Create a named feature branch (like `add_component_x`)
 3. Write you change
 4. Write tests for your change (if applicable)
