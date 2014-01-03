@@ -5,7 +5,7 @@ management node that interacts with the API
 
 Make sure you assign at least one node in the network the CsFirewall::manage 
 role if you want to have your rules enforce in cloudstack. These machines are 
-the machines that will actually talk to the Clud Stack API via http(s)
+the machines that will actually talk to the Cloud Stack API via http(s)
 
 Requirements
 ------------
