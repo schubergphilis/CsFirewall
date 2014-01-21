@@ -96,6 +96,7 @@ e.g.
     <td>Integer</td>
     <td>
         This is the maximum number of rules CsFirewall is allowed to delete of a single type in a single run
+        A negative value disables this check (*CAUTION!*)
     </td>
     <td><tt>5</tt></td>
   </tr>

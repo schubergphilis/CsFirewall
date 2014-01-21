@@ -448,6 +448,7 @@ nodes.each do |n|
 end #nodes
 
 jobs = Array.new
+trash = Array.new
 # Now, lets manage firewall rules
 if ( fw_work ) then
   fwrules.each do |fwrule|
@@ -464,27 +465,40 @@ if ( fw_work ) then
         :endport => fwrule[:endport]
       }
       job = csapi_do(csapi,params,false,true)
-      #if ( job != nil ) then
-      #  jobs.push job["createfirewallruleresponse"]["jobid"]
-      #end
     elsif ( fwrule["action"] == "keep" ) then
       # Keep firewall rule, but tag
       Chef::Log.info("Keeping firewall rule: #{fwrule["cidrlist"]} -> #{fwrule["ipaddress"]}:#{fwrule["protocol"]} #{fwrule["startport"]}-#{fwrule["endport"]}")
-    elsif ( node["cloudstack"]["firewall"]["cleanup"] == true ||  node["cloudstack"]["firewall"]["fwcleanup"] == true ) then
-      Chef::Log.info("Deleting firewall rule: #{fwrule["cidrlist"]} -> #{fwrule["ipaddress"]}:#{fwrule["protocol"]} #{fwrule["startport"]}-#{fwrule["endport"]} (id: #{fwrule["id"]})")
+    else
+      # Tag rule for deletion
+      trash.push(fwrule)
+    end
+  end #fwrule
+  clean = false
+  actiontext = "NOT deleting"
+  if ( node["cloudstack"]["firewall"]["cleanup"] == true ||  node["cloudstack"]["firewall"]["fwcleanup"] == true ) then
+    clean = true
+    actiontext = "Deleting"
+    if ( node['cloudstack']['firewall']['maxdelete'] >= 0 && trash.length > node['cloudstack']['firewall']['maxdelete'] ) then
+      Chef::Log.info("Not deleting firewall rules, #{trash.length} marked for deletion, but maxdelete is set to #{node['cloudstack']['firewall']['maxdelete']}")
+      abort("CsFirewall run failed. Too many rules would have been deleted. Are you sure you configuration is sane?!?!?!? Disabled cleanup to see which rules would be deleted")
+    end
+  else
+    Chef::Log.info("Not deleting firewall rules, cleanup is disabled")
+  end
+  trash.each do |fwrule|
+    Chef::Log.warn("#{actiontext} firewall rule: #{fwrule["cidrlist"]} -> #{fwrule["ipaddress"]}:#{fwrule["protocol"]} #{fwrule["startport"]}-#{fwrule["endport"]} (id: #{fwrule["id"]})")
+    if ( clean ) then
       params = {
         :command => "deleteFirewallRule",
         :id => fwrule["id"]
       }
       csapi_do(csapi,params,false,true)
-      #jobs.push csapi_do(csapi,params)["deletefirewallruleresponse"]["jobid"]
-    else 
-      Chef::Log.info("NOT deleting firewall rule: #{fwrule["cidrlist"]} -> #{fwrule["ipaddress"]}:#{fwrule["protocol"]} #{fwrule["startport"]}-#{fwrule["endport"]} (cleanup disabled)")
     end
   end #fwrule
 end
 
 # Next, lets manage port forward rules
+trash = Array.new
 if ( pf_work ) then
   pfrules.each do |pfrule|
     #Chef::Log.info(pfrule)
@@ -509,22 +523,38 @@ if ( pf_work ) then
     elsif ( pfrule["action"] == "keep" ) then
       # Tag rule
       Chef::Log.info("Keeping port forward rule: #{pfrule["protocol"]} #{pfrule["ipaddress"]}:#{pfrule["publicport"]}-#{pfrule["publicendport"]} -> #{pfrule["virtualmachinename"]}:#{pfrule["privateport"]}-#{pfrule["privateendport"]}")
-			#csapi_do(csapi,{:command => "createTags", :resourceIds => pfrule["id"], :resourceType => "PortForwardingRule", :tags => [ { :key => "CsFirewall", :value => pfrule["CsFirewallTag"] } ] })
-    elsif ( node["cloudstack"]["firewall"]["cleanup"] == true || node["cloudstack"]["firewall"]["forwardcleanup"] == true ) then
-      Chef::Log.info("Deleting port forward rule: #{pfrule["protocol"]} #{pfrule["ipaddress"]}:#{pfrule["publicport"]}-#{pfrule["publicendport"]} -> #{pfrule["virtualmachinename"]}:#{pfrule["privateport"]}-#{pfrule["privateendport"]} (d: #{pfrule["id"]})")
+    else
+      # Tag rule for deletion
+      trash.push(pfrule)
+    end
+  end #pfrule
+
+  clean = false
+  actiontext = "NOT deleting"
+  if ( node["cloudstack"]["firewall"]["cleanup"] == true || node["cloudstack"]["firewall"]["forwardcleanup"] == true ) then
+    clean = true
+    actiontext = "Deleting"
+    if ( node['cloudstack']['firewall']['maxdelete'] >= 0 && trash.length > node['cloudstack']['firewall']['maxdelete'] ) then
+      Chef::Log.info("Not deleting port forwarding rules, #{trash.length} marked for deletion, but maxdelete is set to #{node['cloudstack']['firewall']['maxdelete']}")
+      abort("CsFirewall run failed. Too many rules would have been deleted. Are you sure you configuration is sane?!?!?!? Disabled cleanup to see which rules would be deleted")
+    end
+  else
+    Chef::Log.info("Not deleting port forwarding rules, cleanup is disabled")
+  end
+  trash.each do |pfrule|
+    Chef::Log.info("#{actiontext} port forward rule: #{pfrule["protocol"]} #{pfrule["ipaddress"]}:#{pfrule["publicport"]}-#{pfrule["publicendport"]} -> #{pfrule["virtualmachinename"]}:#{pfrule["privateport"]}-#{pfrule["privateendport"]} (d: #{pfrule["id"]})")
+    if ( clean ) then
       params = {
         :command => "deletePortForwardingRule",
         :id => pfrule["id"]
       }
       csapi_do(csapi,params,false,true)
-      #jobs.push csapi_do(csapi,params)["deleteportforwardingruleresponse"]["jobid"]
-    else 
-      Chef::Log.info("NOT deleting port forward rule: #{pfrule["protocol"]} #{pfrule["ipaddress"]}:#{pfrule["publicport"]}-#{pfrule["publicendport"]} -> #{pfrule["virtualmachinename"]}:#{pfrule["privateport"]}-#{pfrule["privateendport"]} (cleanup disabled)")
     end
   end #pfrule
 end
 
 # Let's manage egress rulles
+trash = Array.new
 egresswork.each do |nwname, work|
   Chef::Log.info("Managing egress rules for network #{nwname}")
   egressrules[nwname].each do |rule|
@@ -558,31 +588,42 @@ egresswork.each do |nwname, work|
       else
         Chef::Log.info("Keeping egress rule on network #{nwname}: 0.0.0.0/0->#{rule["cidrlist"]} #{rule["protocol"]} #{rule["startport"]}/#{rule["endport"]}")
       end
-			#csapi_do(csapi,{:command => "createTags", :resourceIds => rule["id"], :resourceType => "EgressFirewallRule", :tags => [ { :key => "CsFirewall", :value => rule["CsFirewallTag"] } ] })
-    elsif ( node["cloudstack"]["firewall"]["cleanup"] == true || node["cloudstack"]["firewall"]["egresscleanup"] == true ) then
-      # We can delete this rule
-      if ( rule["protocol"] == "icmp" ) then
-        Chef::Log.info("Deleting egress rule on network #{nwname}: 0.0.0.0/0->#{rule["cidrlist"]} #{rule["protocol"]} #{rule["icmptype"]}/#{rule["icmpcode"]}")
-      else
-        Chef::Log.info("Deleting egress rule on network #{nwname}: 0.0.0.0/0->#{rule["cidrlist"]} #{rule["protocol"]} #{rule["startport"]}/#{rule["endport"]}")
-      end
-      params = { 
-        :command => "deleteEgressFirewallRule",
-        :id => rule["id"]
-      }
-      csapi_do(csapi,params,false,true)
-      #jobs.push csapi_do(csapi,params)["deleteegressfirewallruleresponse"]["jobid"]
     else
-      if ( rule["protocol"] == "icmp" ) then
-        Chef::Log.info("Ignoring egress rule on network #{nwname}: 0.0.0.0/0->#{rule["cidrlist"]} #{rule["protocol"]} #{rule["icmptype"]}/#{rule["icmpcode"]} (cleanup disabled)")
-      else
-        Chef::Log.info("Ignoring egress rule on network #{nwname}: 0.0.0.0/0->#{rule["cidrlist"]} #{rule["protocol"]} #{rule["startport"]}/#{rule["endport"]} (cleanup disabled)")
-      end
+      # Mark rule for deletion
+      trash.push(rule)
     end
   end #egressrules
 end #egresswork
 
+clean = false
+actiontext = "NOT deleting"
+if ( node["cloudstack"]["firewall"]["cleanup"] == true || node["cloudstack"]["firewall"]["egresscleanup"] == true ) then
+  clean = true
+  actiontext = "Deleting"
+  if ( node['cloudstack']['firewall']['maxdelete'] >= 0 && trash.length > node['cloudstack']['firewall']['maxdelete'] ) then
+    Chef::Log.info("Not deleting egress rules, #{trash.length} marked for deletion, but maxdelete is set to #{node['cloudstack']['firewall']['maxdelete']}")
+    abort("CsFirewall run failed. Too many rules would have been deleted. Are you sure you configuration is sane?!?!?!? Disabled cleanup to see which rules would be deleted")
+  end
+else
+  Chef::Log.info("Not deleting egress rules, cleanup is disabled")
+end
+trash.each do |rule|
+  if ( rule["protocol"] == "icmp" ) then
+    Chef::Log.info("#{actiontext} egress rule on network #{nwname}: 0.0.0.0/0->#{rule["cidrlist"]} #{rule["protocol"]} #{rule["icmptype"]}/#{rule["icmpcode"]}")
+  else
+    Chef::Log.info("#{actiontext} egress rule on network #{nwname}: 0.0.0.0/0->#{rule["cidrlist"]} #{rule["protocol"]} #{rule["startport"]}/#{rule["endport"]}")
+  end
+  if ( clean ) then
+    params = { 
+      :command => "deleteEgressFirewallRule",
+      :id => rule["id"]
+    }
+    csapi_do(csapi,params,false,true)
+  end
+end
+
 # Next, lets manage acls
+trash = Array.new
 acl_work.each do |nwname, work|
   if ( ( 
         # We don't have a selection of managed or unmanaged ACLs
@@ -622,40 +663,47 @@ acl_work.each do |nwname, work|
           params[:endport] = acl[:endport]
       	end
       	csapi_do(csapi,params,false,true)
-      	#job = csapi_do(csapi,params)
-      	#if ( job != nil ) then
-        #  jobs.push job["createnetworkaclresponse"]["jobid"]
-      	#end
-    	elsif ( acl["action"] == "keep" ) then
+      elsif ( acl["action"] == "keep" ) then
       	# Do nothing
-      	if ( acl["protocol"] == "icmp" ) then
+        if ( acl["protocol"] == "icmp" ) then
           Chef::Log.info("Keeping acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["icmptype"]}/#{acl["icmpcode"]} #{acl["traffictype"]}")
-      	else
+        else
           Chef::Log.info("Keeping acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["startport"]}/#{acl["endport"]} #{acl["traffictype"]}")
-      	end
-    	elsif ( node["cloudstack"]["firewall"]["cleanup"] == true || node["cloudstack"]["firewall"]["aclcleanup"] == true ) then
-      	if ( acl["protocol"] == "icmp" ) then
-          Chef::Log.info("Deleting acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["icmptype"]}/#{acl["icmpcode"]} #{acl["traffictype"]} (id: #{acl["id"]})")
-      	else
-          Chef::Log.info("Deleting acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["startport"]}/#{acl["endport"]} #{acl["traffictype"]} (id: #{acl["id"]})")
-      	end
-      	Chef::Log.info("Deleting port forward rule: #{acl["protocol"]} #{acl["ipaddress"]}:#{acl["publicport"]}-#{acl["publicendport"]} -> #{acl["virtualmachinename"]}:#{acl["privateport"]}-#{acl["privateendport"]} (d: #{acl["id"]})")
-      	params = {
-          :command => "deleteNetworkACL",
-          :id => acl["id"]
-      	}
-      	csapi_do(csapi,params,false,true)
-      	#jobs.push csapi_do(csapi,params)["deletenetworkaclresponse"]["jobid"]
-    	else 
-      	if ( acl["protocol"] == "icmp" ) then
-          Chef::Log.info("Ignoring acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["icmptype"]}/#{acl["icmpcode"]} #{acl["traffictype"]} (id: #{acl["id"]}, (cleanup disabled)")
-      	else
-          Chef::Log.info("Ignoring acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["startport"]}/#{acl["endport"]} #{acl["traffictype"]} (id: #{acl["id"]}, (cleanup disabled)")
-      	end
+        end
+      else
+        # Mark rule for deletion
+        trash.push(acl)
       end
-    end #acl
-  end # managed or unmanaged?
+    end # if
+  end #acl
 end #aclwork
+
+clean = false
+actiontext = "NOT deleting"
+if ( node["cloudstack"]["firewall"]["cleanup"] == true || node["cloudstack"]["firewall"]["aclcleanup"] == true ) then
+  clean = true
+  actiontext = "Deleting"
+  if ( node['cloudstack']['firewall']['maxdelete'] >= 0 && trash.length > node['cloudstack']['firewall']['maxdelete'] ) then
+    Chef::Log.info("Not deleting acl rules, #{trash.length} marked for deletion, but maxdelete is set to #{node['cloudstack']['firewall']['maxdelete']}")
+    abort("CsFirewall run failed. Too many rules would have been deleted. Are you sure you configuration is sane?!?!?!? Disabled cleanup to see which rules would be deleted")
+  end
+else
+  Chef::Log.info("Not deleting acl rules, cleanup is disabled")
+end
+trash.each do |acl|
+  if ( acl["protocol"] == "icmp" ) then
+    Chef::Log.info("#{actiontext} acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["icmptype"]}/#{acl["icmpcode"]} #{acl["traffictype"]} (id: #{acl["id"]})")
+  else
+    Chef::Log.info("#{actiontext} acl on network #{nwname}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["startport"]}/#{acl["endport"]} #{acl["traffictype"]} (id: #{acl["id"]})")
+  end
+  if ( clean ) then
+    params = {
+      :command => "deleteNetworkACL",
+      :id => acl["id"]
+    }
+    csapi_do(csapi,params,false,true)
+  end 
+end #trash
 	
 # Wait for all jobs to finish
 jobs.each do |job|
