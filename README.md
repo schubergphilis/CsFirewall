@@ -59,12 +59,53 @@ e.g.
     <td><tt>False</tt></td>
   </tr>
   <tr>
+    <td><tt>['cloudstack']['firewall']['fwcleanup']</tt></td>
+    <td>Boolean</td>
+    <td>
+	Should firewall rules not matching node attributes be cleaned up?
+    </td>
+    <td><tt>False</tt></td>
+  </tr>
+  <tr>
+    <td><tt>['cloudstack']['firewall']['forwardcleanup']</tt></td>
+    <td>Boolean</td>
+    <td>
+	Should port forward rules not matching node attributes be cleaned up?
+    </td>
+    <td><tt>False</tt></td>
+  </tr>
+  <tr>
+    <td><tt>['cloudstack']['firewall']['egresscleanup']</tt></td>
+    <td>Boolean</td>
+    <td>
+	Should egress rules not matching node attributes be cleaned up?
+    </td>
+    <td><tt>False</tt></td>
+  </tr>
+  <tr>
+    <td><tt>['cloudstack']['firewall']['aclcleanup']</tt></td>
+    <td>Boolean</td>
+    <td>
+	Should acl rules not matching node attributes be cleaned up?
+	ACLs are only cleaned up when at least one node has specified an ACL in the network
+    </td>
+    <td><tt>False</tt></td>
+  </tr>
+  <tr>
+    <td><tt>['cloudstack']['firewall']['maxdelete']</tt></td>
+    <td>Integer</td>
+    <td>
+        This is the maximum number of rules CsFirewall is allowed to delete of a single type in a single run
+    </td>
+    <td><tt>5</tt></td>
+  </tr>
+  <tr>
     <td><tt>['cloudstack']['firewall']['cleanup']</tt></td>
     <td>Boolean</td>
     <td>
-		Should rules not matching node attributes be cleaned up?
-		ACLs are only cleaned up when at least one node has specified an ACL in the network
-		</td>
+        Global cleanup on switch. If this attribute is set to true, any type of rule will be cleaned up.
+        If this is set to false, but a more specific clean attribute is set to true, cleanup of that specific type WILL happen
+    </td>
     <td><tt>False</tt></td>
   </tr>
   <tr>

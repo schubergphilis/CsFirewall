@@ -16,6 +16,10 @@
 # limitations under the License.
 
 # Generic cloudstack firewall attributes
+default['cloudstack']['firewall']['fwcleanup']  = false
+default['cloudstack']['firewall']['forwardcleanup']  = false
+default['cloudstack']['firewall']['egresscleanup']  = false
+default['cloudstack']['firewall']['aclcleanup']  = false
 default['cloudstack']['firewall']['cleanup']  = false
 default['cloudstack']['firewall']['iptables']['INPUT'] = 'ACCEPT'
 default['cloudstack']['firewall']['iptables']['OUTPUT'] = 'ACCEPT'
