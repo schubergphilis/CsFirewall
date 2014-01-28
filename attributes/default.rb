@@ -25,3 +25,4 @@ default['cloudstack']['firewall']['maxdelete'] = 5
 default['cloudstack']['firewall']['iptables']['INPUT'] = 'ACCEPT'
 default['cloudstack']['firewall']['iptables']['OUTPUT'] = 'ACCEPT'
 default['cloudstack']['firewall']['iptables']['FORWARD'] = 'DROP'
+default['cloudstack']['firewall']['scope'] = []

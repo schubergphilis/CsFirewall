@@ -84,7 +84,7 @@ params = {
 }
 acls = Hash.new
 networks.each do |key, nw|
-  if ( nw["traffictype"] == "Guest" ) then
+  if ( not nw.has_key?("vpcid") ) then
     # This works around a bug in cloudstack. In certain versions this call on a guest network will list all
     # ACL configured for this cloudstack account
     Chef::Log.info("Network #{nw["name"]} is a guest network, not getting ACLs")
@@ -108,9 +108,13 @@ csapi_do(csapi,{ :command => "listVirtualMachines" })["listvirtualmachinesrespon
   machines[m["name"].downcase] = m
 end
 
+if node["cloudstack"]["firewall"]["scope"].is_a? then
+  @scope = node["cloudstack"]["firewall"]["scope"]
+end
+
 # This should probably be a partial search, but I don't get the documentation 
 # for that feature
-nodes = search(:node, "cloudstack_firewall_ingress:*")
+nodes = search(:node, (["cloudstack_firewall_ingress:*"] + (@scope || [])).join(" AND "))
 
 fw_work = Hash.new()
 pf_work = Hash.new()
@@ -227,7 +231,7 @@ nodes.each do |n|
 end #node
 
 # Egress rules
-nodes = search(:node, "cloudstack_firewall_egress:*")
+nodes = search(:node, (["cloudstack_firewall_egress:*"] + (@scope || [])).join(" AND "))
 egresswork = Hash.new()
 
 nodes.each do |n|
@@ -345,7 +349,7 @@ end #nodes
 
 # This should probably be a partial search, but I don't get the documentation 
 # for that feature
-nodes = search(:node, "cloudstack_acl:*")
+nodes = search(:node, (["cloudstack_acl:*"] + (@scope || [])).join(" AND "))
 
 acl_work = Hash.new
 nodes.each do |n|
@@ -390,7 +394,7 @@ nodes.each do |n|
         else
           network = aclsoll[0]
         end
-        if ( networks[network]["traffictype"] == "Guest" ) then
+        if ( not networks[network].has_key?("vpcid") ) then
           Chef::Log.warn("Cannot create an ACL on network #{network}, it is a guest network")
         else
           acl_work[network] = true
