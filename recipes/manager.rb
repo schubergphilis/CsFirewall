@@ -84,7 +84,7 @@ params = {
 }
 acls = Hash.new
 networks.each do |key, nw|
-  if ( nw["traffictype"] == "Guest" ) then
+  if ( not nw.has_key?("vpcid") ) then
     # This works around a bug in cloudstack. In certain versions this call on a guest network will list all
     # ACL configured for this cloudstack account
     Chef::Log.info("Network #{nw["name"]} is a guest network, not getting ACLs")
@@ -390,7 +390,7 @@ nodes.each do |n|
         else
           network = aclsoll[0]
         end
-        if ( networks[network]["traffictype"] == "Guest" ) then
+        if ( not networks[network].has_key?("vpcid") ) then
           Chef::Log.warn("Cannot create an ACL on network #{network}, it is a guest network")
         else
           acl_work[network] = true
