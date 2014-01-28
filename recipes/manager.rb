@@ -108,9 +108,13 @@ csapi_do(csapi,{ :command => "listVirtualMachines" })["listvirtualmachinesrespon
   machines[m["name"].downcase] = m
 end
 
+if node["cloudstack"]["firewall"]["scope"].is_a? then
+  @scope = node["cloudstack"]["firewall"]["scope"]
+end
+
 # This should probably be a partial search, but I don't get the documentation 
 # for that feature
-nodes = search(:node, "cloudstack_firewall_ingress:*")
+nodes = search(:node, (["cloudstack_firewall_ingress:*"] + (@scope || [])).join(" AND "))
 
 fw_work = Hash.new()
 pf_work = Hash.new()
@@ -227,7 +231,7 @@ nodes.each do |n|
 end #node
 
 # Egress rules
-nodes = search(:node, "cloudstack_firewall_egress:*")
+nodes = search(:node, (["cloudstack_firewall_egress:*"] + (@scope || [])).join(" AND "))
 egresswork = Hash.new()
 
 nodes.each do |n|
@@ -345,7 +349,7 @@ end #nodes
 
 # This should probably be a partial search, but I don't get the documentation 
 # for that feature
-nodes = search(:node, "cloudstack_acl:*")
+nodes = search(:node, (["cloudstack_acl:*"] + (@scope || [])).join(" AND "))
 
 acl_work = Hash.new
 nodes.each do |n|

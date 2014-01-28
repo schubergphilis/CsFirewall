@@ -110,6 +110,14 @@ e.g.
     <td><tt>False</tt></td>
   </tr>
   <tr>
+    <td><tt>['cloudstack']['firewall']['scope']</tt></td>
+    <td>Array</td>
+    <td>
+        Global scope definition for the Chef node search. Will be joined with AND, example: ['chef_environment:prod', 'hostname:web'] will only manage hosts named 'web' in the 'prod' environment.
+    </td>
+    <td><tt>Empty</tt></td>
+  </tr>
+  <tr>
     <td><tt>['cloudstack']['firewall']['ingress'][&lt;tag&gt;]</tt></td>
     <td>Array</td>
     <td>Note, use a unique tag per role to prevent roles overwriting each other
