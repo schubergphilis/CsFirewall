@@ -2,6 +2,10 @@
 
 This file is used to list changes made in each version of CsFirewall.
 
+## 0.9.7
+* Add scoping for node searches
+* Fix traffictype detection to skip ACLs on non-VPC networks
+
 ## 0.9.0
 
 * Now using chef_gem instead of gem_package to install dependant gem
