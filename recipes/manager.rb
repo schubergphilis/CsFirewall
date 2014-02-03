@@ -108,7 +108,7 @@ csapi_do(csapi,{ :command => "listVirtualMachines" })["listvirtualmachinesrespon
   machines[m["name"].downcase] = m
 end
 
-if node["cloudstack"]["firewall"]["scope"].is_a? then
+if node["cloudstack"]["firewall"]["scope"].kind_of?(Array) then
   @scope = node["cloudstack"]["firewall"]["scope"]
 end
 
