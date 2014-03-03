@@ -132,7 +132,7 @@ nodes.each do |n|
   end
 
   if ( unmanaged != true && unmanaged != "true" ) then
-    Chef::Log.info("Found ingress firewall rules for host: #{n.name}")
+    Chef::Log.info("Found ingress firewall rules in attributes of host: #{n.name}")
     # Get all ingress rules
     tags = Hash.new()
     # Prevent old style from failing
@@ -145,7 +145,7 @@ nodes.each do |n|
       ruleset.each do |fw|
         fw_work[fw[0]] = true
         found = false
-        # Expand search if found
+        # Expand searc
         cidrlist = expand_search(fw[2])
         # Expand protocol
         fw[1].split(/,/).each do |protocol|
@@ -156,15 +156,15 @@ nodes.each do |n|
               fw[0] == fwrule["ipaddress"] &&
               protocol == fwrule["protocol"] &&
               cidrlist == fwrule["cidrlist"] &&
-              fw[3] == fwrule["startport"] &&
-              fw[4] == fwrule["endport"] 
+              ( fw[3] == fwrule["startport"] || fw[3] == fwrule["icmptype"] ) &&
+              ( fw[4] == fwrule["endport"] || fw[4] == fwrule["icmpcode"] ) 
             ) then
               # If a rule is found it means we get to keep it, unless it is a rule we have to create
               found = true
               if ( fwrule["action"] != "create" ) then
+                Chef::Log.info("Firewall rule #{fwrule["cidrlist"]}->#{fwrule["ipaddress"]} #{fwrule["protocol"]}/#{fwrule["startport"]}-#{fwrule["protocol"]}/#{fwrule["endport"]} found, action was #{fwrule["action"]} will be set to keep")
                 fwrule["action"] = "keep"
                 fwrule["CsFirewallTag"] = tag
-                Chef::Log.info("Firewall rule found, keeping")
               end
             end
           end #fwrules
@@ -173,15 +173,27 @@ nodes.each do |n|
               Chef::Log.warn("CIDR block contains 127.0.0.1/32, likely cause: failed search, not creating rule")
             else
               # If we have not found a rule, we have to create one
-              fwrules << {
-                :ipaddress => fw[0],
-                :protocol => protocol,
-                :cidrlist => cidrlist,
-                :startport => fw[3],
-                :endport => fw[4],
-                :action => "create"
-              }
-              Chef::Log.info("Firewall rule will be created")
+	      if ( protocol == "icmp" ) then
+                Chef::Log.info("Firewall rule not found #{cidrlist}->#{fw[0]} #{protocol}/#{fw[3]}:#{fw[4]} found, will create later")
+                fwrules << {
+                  "ipaddress" => fw[0],
+                  "protocol" => protocol,
+                  "cidrlist" => cidrlist,
+                  "icmptype" => fw[3],
+                  "icmpcode" => fw[4],
+                  "action" => "create"
+                }
+	      else
+                Chef::Log.info("Firewall rule not found #{cidrlist}->#{fw[0]} #{protocol}/#{fw[3]}-#{protocol}/#{fw[4]} found, will create later")
+                fwrules << {
+                  "ipaddress" => fw[0],
+                  "protocol" => protocol,
+                  "cidrlist" => cidrlist,
+                  "startport" => fw[3],
+                  "endport" => fw[4],
+                  "action" => "create"
+                }
+	      end
             end # 127.0.0.1
           end # found
           
@@ -470,17 +482,22 @@ fwrules.each do |fwrule|
   # First check if this ip address is firewall managed
   if ( fw_work[fwrule["ipaddress"]] ) then
   #Chef::Log.info(fwrule)
-    if ( fwrule[:action] == "create" ) then
+    if ( fwrule["action"] == "create" ) then
       # Time to create a firewall rule
-      Chef::Log.info("Creating firewall rule: #{fwrule[:cidrlist]} -> #{fwrule[:ipaddress]}:#{fwrule[:protocol]} #{fwrule[:startport]}-#{fwrule[:endport]}")
+      Chef::Log.info("Creating firewall rule: #{fwrule["cidrlist"]} -> #{fwrule["ipaddress"]}:#{fwrule["protocol"]} #{fwrule["startport"]}#{fwrule["icmptype"]}-#{fwrule["endport"]}#{fwrule["icmpcode"]}")
       params = {
         :command => "createFirewallRule",
-        :cidrlist => fwrule[:cidrlist],
-        :ipaddressid => ips[fwrule[:ipaddress]],
-        :protocol => fwrule[:protocol],
-        :startport => fwrule[:startport],
-        :endport => fwrule[:endport]
+        :cidrlist => fwrule["cidrlist"],
+        :ipaddressid => ips[fwrule["ipaddress"]],
+        :protocol => fwrule["protocol"]
       }
+      if ( fwrule["protocol"] == "icmp" ) then
+	params[:icmpcode] = fwrule["icmpcode"]
+	params[:icmptype] = fwrule["icmptype"]
+      else
+	params[:startport] = fwrule["startport"]
+	params[:endport] = fwrule["endport"]
+      end
       job = csapi_do(csapi,params,false,true)
     elsif ( fwrule["action"] == "keep" ) then
       # Keep firewall rule, but tag

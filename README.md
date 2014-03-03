@@ -125,10 +125,10 @@ e.g.
     Each of the rules is specified in the following format:
     <ul>
       <li>IP address
-      <li>Protocol (tcp|udp)
+      <li>Protocol (tcp|udp|icmp)
       <li>CIDR block
-      <li>Start port public
-      <li>End port public
+      <li>Start port public|icmp type
+      <li>End port public|icmp code
       <li>Start port private
     </ul>
     E.g. to specify that external TCP port 80 and 81 on ip 1.2.3.4 have to be allowed publicly and forwarded to port 8080 and 8081 specify:<br>

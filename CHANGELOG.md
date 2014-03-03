@@ -2,6 +2,10 @@
 
 This file is used to list changes made in each version of CsFirewall.
 
+## 0.9.8
+* Fixed a bug that prevented the correct adding of firewall rules
+* ICMP is now also supported for firewall rules
+
 ## 0.9.7
 * Add scoping for node searches
 * Fix traffictype detection to skip ACLs on non-VPC networks
