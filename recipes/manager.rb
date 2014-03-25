@@ -141,12 +141,14 @@ nodes.each do |n|
     else
         tags = n["cloudstack"]["firewall"]["ingress"]
     end
+    
+    # First expand the searches
+    tags = expand_tags(tags, 2)
+    
     tags.each do |tag,ruleset| 
       ruleset.each do |fw|
         fw_work[fw[0]] = true
         found = false
-        # Expand searc
-        cidrlist = expand_search(fw[2])
         # Expand protocol
         fw[1].split(/,/).each do |protocol|
           # Check for a firewall rule
@@ -155,7 +157,7 @@ nodes.each do |n|
             if ( ( not found ) &&
               fw[0] == fwrule["ipaddress"] &&
               protocol == fwrule["protocol"] &&
-              cidrlist == fwrule["cidrlist"] &&
+              fw[2] == fwrule["cidrlist"] &&
               ( fw[3] == fwrule["startport"] || fw[3] == fwrule["icmptype"] ) &&
               ( fw[4] == fwrule["endport"] || fw[4] == fwrule["icmpcode"] ) 
             ) then
@@ -169,26 +171,26 @@ nodes.each do |n|
             end
           end #fwrules
           if ( not found ) then
-            if ( cidrlist =~ /127\.0\.0\.1\/32/ ) then
+            if ( fw[2] =~ /127\.0\.0\.1\/32/ ) then
               Chef::Log.warn("CIDR block contains 127.0.0.1/32, likely cause: failed search, not creating rule")
             else
               # If we have not found a rule, we have to create one
 	      if ( protocol == "icmp" ) then
-                Chef::Log.info("Firewall rule not found #{cidrlist}->#{fw[0]} #{protocol}/#{fw[3]}:#{fw[4]} found, will create later")
+                Chef::Log.info("Firewall rule not found #{fw[2]}->#{fw[0]} #{protocol}/#{fw[3]}:#{fw[4]} found, will create later")
                 fwrules << {
                   "ipaddress" => fw[0],
                   "protocol" => protocol,
-                  "cidrlist" => cidrlist,
+                  "cidrlist" => fw[2],
                   "icmptype" => fw[3],
                   "icmpcode" => fw[4],
                   "action" => "create"
                 }
 	      else
-                Chef::Log.info("Firewall rule not found #{cidrlist}->#{fw[0]} #{protocol}/#{fw[3]}-#{protocol}/#{fw[4]} found, will create later")
+                Chef::Log.info("Firewall rule not found #{fw[2]}->#{fw[0]} #{protocol}/#{fw[3]}-#{protocol}/#{fw[4]} found, will create later")
                 fwrules << {
                   "ipaddress" => fw[0],
                   "protocol" => protocol,
-                  "cidrlist" => cidrlist,
+                  "cidrlist" => fw[2],
                   "startport" => fw[3],
                   "endport" => fw[4],
                   "action" => "create"
@@ -198,7 +200,7 @@ nodes.each do |n|
           end # found
           
           # If a destination port is set in the ingress rule, we have to have a port forward rule
-          if ( fw[5] != nil && fw[5] != "" && cidrlist !~ /127\.0\.0\.1\/32/ ) then
+          if ( fw[5] != nil && fw[5] != "" && fw[2] !~ /127\.0\.0\.1\/32/ ) then
             pf_work[fw[0]] = true
             found = false
             pfrules.each do |pfrule|
@@ -260,8 +262,12 @@ nodes.each do |n|
   end
   if ( unmanaged != true && unmanaged != "true" ) then
     Chef::Log.info("Found egress rules for host: #{n.name}")
+    
+    # First expand the searches
+    tags = expand_tags(n["cloudstack"]["firewall"]["egress"])
+    
     # Get egress rules from host
-    n["cloudstack"]["firewall"]["egress"].each do |tag,ruleset|
+    tags.each do |tag,ruleset|
       ruleset.each do |rule|
         # Expand interface references to network names
         if ( rule[0] =~ /^nic_(\d+)$/) then
@@ -281,9 +287,6 @@ nodes.each do |n|
           network = rule[0]
         end
         egresswork[network] = true
-
-        #Expand seraches in cidrblock
-        cidrblock = expand_search(rule[1])
         
         # Expand protocol
         rule[2].split(/,/).each do |protocol|
@@ -292,7 +295,7 @@ nodes.each do |n|
           if ( egressrules[network] ) then
             egressrules[network].each do |erule|
               if ( ( not found ) &&
-              	cidrblock == erule["cidrlist"] &&
+              	rule[1] == erule["cidrlist"] &&
               	protocol == erule["protocol"] &&
               	( rule[3] == erule["startport"] || rule[3].to_i == erule["icmptype"] ) &&
               	( rule[4] == erule["endport"] || rule[4].to_i == erule["icmpcode"] ) 
@@ -313,7 +316,7 @@ nodes.each do |n|
             networks[network] = networks[network] || Hash.new
           end
           if ( not found ) then
-            if ( cidrblock =~ /127\.0\.0\.1\/32/ ) then
+            if ( rule[1] =~ /127\.0\.0\.1\/32/ ) then
               Chef::Log.warn("CIDRlist contains 127.0.0.1/32, probable cause: failed search, not adding rule")
             else 
               # Need to create egress fule
@@ -321,7 +324,7 @@ nodes.each do |n|
               if ( protocol == "icmp" ) then
                 egressrules[network] << {
                   "networkid" => networks[network]["id"] || nil,
-                  "cidrlist" => cidrblock,
+                  "cidrlist" => rule[1],
                   "protocol" => protocol,
                   "imcptype" => rule[3],
                   "icmpcode" => rule[4],
@@ -336,7 +339,7 @@ nodes.each do |n|
               else 
                 egressrules[network] << {
                   "networkid" => networks[network]["id"],
-                  "cidrlist" => cidrblock,
+                  "cidrlist" => rule[1],
                   "protocol" => protocol,
                   "startport" => rule[3],
                   "endport" => rule[4],
@@ -388,6 +391,10 @@ nodes.each do |n|
     else
       tags = n["cloudstack"]["acl"]
     end
+    
+    # First expand the searches
+    tags = expand_tags(tags)
+    
     tags.each do |tag,ruleset|
       ruleset.each do |aclsoll|
         # Expand interface references to network names
@@ -410,9 +417,6 @@ nodes.each do |n|
           Chef::Log.warn("Cannot create an ACL on network #{network}, it is a guest network")
         else
           acl_work[network] = true
-
-          # Expand searches in cidrblock
-          cidrblock = expand_search(aclsoll[1])
         
           # Support multi-direction
           aclsoll[5].split(/,/).each do |traffictype|     
@@ -422,7 +426,7 @@ nodes.each do |n|
               # Check for an existing acl
               acls[network].each do |acl|
                 if ( ( not found ) &&
-                    cidrblock == acl["cidrlist"] &&
+                    aclsoll[1] == acl["cidrlist"] &&
                     protocol == acl["protocol"] &&
                     ( aclsoll[3] == acl["startport"] || aclsoll[3].to_i == acl["icmptype"] ) &&
                     ( aclsoll[4] == acl["endport"]   || aclsoll[4].to_i == acl["icmpcode"] ) &&
@@ -437,7 +441,7 @@ nodes.each do |n|
                 end
               end #acls
               if ( not found ) then
-                if ( cidrblock =~ /127\.0\.0\.1\/32/ ) then
+                if ( aclsoll[1] =~ /127\.0\.0\.1\/32/ ) then
                   Chef::Log.warn("CIDRblock contains 127.0.0.1/32, probable cause: failed search. Not adding rule")
                 else
                   # ACL needs to be created
@@ -445,7 +449,7 @@ nodes.each do |n|
                   if ( protocol == "icmp" ) then
                     acls[network] << {
                       :networkid => networks[network]["id"],
-                      :cidrlist => cidrblock,
+                      :cidrlist => aclsoll[1],
                       :protocol => protocol,
                       :icmptype => aclsoll[3],
                       :icmpcode => aclsoll[4],
@@ -455,7 +459,7 @@ nodes.each do |n|
                   else
                     acls[network] << {
                       :networkid => networks[network]["id"],
-                      :cidrlist => cidrblock,
+                      :cidrlist => aclsoll[1],
                       :protocol => protocol,
                       :startport => aclsoll[3],
                       :endport => aclsoll[4],
