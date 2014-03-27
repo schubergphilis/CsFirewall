@@ -68,8 +68,9 @@ module SearchesLib
         search = expand_search(rule[key])
         if search
           search.each do |host|
-            rule[key] = host
-            ruleset_new = ruleset_new + [rule]
+            rule_new = rule.dup
+            rule_new[key] = host
+            ruleset_new = ruleset_new + [rule_new]
           end
         else
           ruleset_new = ruleset_new + [rule]
