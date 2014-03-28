@@ -32,7 +32,7 @@ module SearchesLib
 
     if ( cidrs.length == 0 ) then
       Chef::Log.warn("search #{search} did not return any results, returning 127.0.0.1/32")
-      return "127.0.0.1/32"
+      cidrs.push("127.0.0.1/32")
     end
 
     Chef::Log.info("search #{search} expanded to #{cidrs.sort.join ","}")
@@ -40,7 +40,7 @@ module SearchesLib
   end
 
   def expand_search(rule='')
-    exp = rule
+    exp = rule.dup
     result = Array.new()
     
     while ( exp =~ /\{([^\}]*)\}/ ) do
