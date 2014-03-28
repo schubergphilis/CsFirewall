@@ -522,6 +522,9 @@ if ( node["cloudstack"]["firewall"]["cleanup"] == true ||  node["cloudstack"]["f
   actiontext = "Deleting"
   if ( node['cloudstack']['firewall']['maxdelete'] >= 0 && trash.length > node['cloudstack']['firewall']['maxdelete'] ) then
     Chef::Log.info("Not deleting firewall rules, #{trash.length} marked for deletion, but maxdelete is set to #{node['cloudstack']['firewall']['maxdelete']}")
+    trash.each do |fwrule|
+      Chef::Log.info("Marked for delete: #{fwrule["cidrlist"]} -> #{fwrule["ipaddress"]}:#{fwrule["protocol"]} #{fwrule["startport"]}-#{fwrule["endport"]} (id: #{fwrule["id"]})")
+    end
     abort("CsFirewall run failed. Too many rules would have been deleted. Are you sure you configuration is sane?!?!?!? Disabled cleanup to see which rules would be deleted")
   end
 else
@@ -579,6 +582,9 @@ if ( node["cloudstack"]["firewall"]["cleanup"] == true || node["cloudstack"]["fi
   actiontext = "Deleting"
   if ( node['cloudstack']['firewall']['maxdelete'] >= 0 && trash.length > node['cloudstack']['firewall']['maxdelete'] ) then
     Chef::Log.info("Not deleting port forwarding rules, #{trash.length} marked for deletion, but maxdelete is set to #{node['cloudstack']['firewall']['maxdelete']}")
+    trash.each do |pfrule|
+      Chef::Log.info("Marked for delete: #{pfrule["protocol"]} #{pfrule["ipaddress"]}:#{pfrule["publicport"]}-#{pfrule["publicendport"]} -> #{pfrule["virtualmachinename"]}:#{pfrule["privateport"]}-#{pfrule["privateendport"]} (id: #{pfrule["id"]})")
+    end
     abort("CsFirewall run failed. Too many rules would have been deleted. Are you sure you configuration is sane?!?!?!? Disabled cleanup to see which rules would be deleted")
   end
 else
@@ -641,6 +647,9 @@ if ( node["cloudstack"]["firewall"]["cleanup"] == true || node["cloudstack"]["fi
   actiontext = "Deleting"
   if ( node['cloudstack']['firewall']['maxdelete'] >= 0 && trash.length > node['cloudstack']['firewall']['maxdelete'] ) then
     Chef::Log.info("Not deleting egress rules, #{trash.length} marked for deletion, but maxdelete is set to #{node['cloudstack']['firewall']['maxdelete']}")
+    trash.each do |rule|
+      Chef::Log.info("Marked for delete: 0.0.0.0/0->#{rule["cidrlist"]} #{rule["protocol"]} #{rule["icmptype"]}#{rule["startport"]}/#{rule["icmpcode"]}#{rule["endport"]}")
+    end
     abort("CsFirewall run failed. Too many rules would have been deleted. Are you sure you configuration is sane?!?!?!? Disabled cleanup to see which rules would be deleted")
   end
 else
@@ -725,6 +734,9 @@ if ( node["cloudstack"]["firewall"]["cleanup"] == true || node["cloudstack"]["fi
   actiontext = "Deleting"
   if ( node['cloudstack']['firewall']['maxdelete'] >= 0 && trash.length > node['cloudstack']['firewall']['maxdelete'] ) then
     Chef::Log.info("Not deleting acl rules, #{trash.length} marked for deletion, but maxdelete is set to #{node['cloudstack']['firewall']['maxdelete']}")
+    trash.each do |acl|
+      Chef::Log.info("Marked for delete: #{acl[:nwname]} #{acl["cidrlist"]} #{acl["protocol"]} #{acl["startport"]}#{acl["icmptype"]}/#{acl["icmpcode"]}#{acl["endport"]} #{acl["traffictype"]} (id: #{acl["id"]})")
+    end
     abort("CsFirewall run failed. Too many rules would have been deleted. Are you sure you configuration is sane?!?!?!? Disabled cleanup to see which rules would be deleted")
   end
 else
