@@ -158,13 +158,13 @@ nodes.each do |n|
               fw[0] == fwrule["ipaddress"] &&
               protocol == fwrule["protocol"] &&
               fw[2] == fwrule["cidrlist"] &&
-              ( fw[3] == fwrule["startport"] || fw[3] == fwrule["icmptype"] ) &&
-              ( fw[4] == fwrule["endport"] || fw[4] == fwrule["icmpcode"] ) 
+              ( fw[3] == fwrule["startport"] || fw[3].to_i == fwrule["icmptype"] ) &&
+              ( fw[4] == fwrule["endport"] || fw[4].to_i == fwrule["icmpcode"] ) 
             ) then
               # If a rule is found it means we get to keep it, unless it is a rule we have to create
               found = true
               if ( fwrule["action"] != "create" ) then
-                Chef::Log.info("Firewall rule #{fwrule["cidrlist"]}->#{fwrule["ipaddress"]} #{fwrule["protocol"]}/#{fwrule["startport"]}-#{fwrule["protocol"]}/#{fwrule["endport"]} found, action was #{fwrule["action"]} will be set to keep")
+                Chef::Log.info("Firewall rule #{fwrule["cidrlist"]}->#{fwrule["ipaddress"]} #{fwrule["protocol"]}/#{fwrule["startport"]}#{fwrule["icmptype"]}-#{fwrule["protocol"]}/#{fwrule["endport"]}#{fwrule["icmpcode"]} found, action was #{fwrule["action"]} will be set to keep")
                 fwrule["action"] = "keep"
                 fwrule["CsFirewallTag"] = tag
               end
