@@ -2,6 +2,11 @@
 
 This file is used to list changes made in each version of CsFirewall.
 
+## 0.9.9
+* Expand search results to separate rules
+* Log marked rules when exceeding maxdelete
+* Fixed icmp fwrule matching bug
+
 ## 0.9.8
 * Fixed a bug that prevented the correct adding of firewall rules
 * ICMP is now also supported for firewall rules

@@ -21,7 +21,8 @@ module SearchesLib
     cidrs = Array.new()
     if ( search == '' ) then
       Chef::Log.warn("search_to_cidrlist called, but no search specified, returning 127.0.0.1/32");
-      return "127.0.0.1/32"
+      cidrs.push("127.0.0.1/32")
+      return cidrs
     end
 
     nodes = search(:node, search)
@@ -31,27 +32,53 @@ module SearchesLib
 
     if ( cidrs.length == 0 ) then
       Chef::Log.warn("search #{search} did not return any results, returning 127.0.0.1/32")
-      return "127.0.0.1/32"
+      cidrs.push("127.0.0.1/32")
     end
 
-    Chef::Log.info("search #{search} expanded to #{cidrs.join ","}")
-    return cidrs.sort.join(",")
+    Chef::Log.info("search #{search} expanded to #{cidrs.sort.join ","}")
+    return cidrs.sort
   end
 
   def expand_search(rule='')
-    exp = rule
+    exp = rule.dup
+    result = Array.new()
+    
     while ( exp =~ /\{([^\}]*)\}/ ) do
       expanded = @@cached_searches[$1]
       if ( expanded == nil ) then
         expanded = search_to_cidrlist($1)
         @@cached_searches[$1] = expanded
       end
-      exp.gsub!("{#{$1}}",expanded)
+      exp.gsub!("{#{$1}}", "")
+      result = result + expanded
     end # while
-    if ( rule != exp ) then
-      Chef::Log.info("Expanded #{rule} to #{exp}")
+    
+    if ( result.length > 0 ) then
+      Chef::Log.info("Expanded #{rule} to #{result.length} rules")
+      return result
     end
-    return exp
+    return false
   end #expand_search
+
+  def expand_tags(tags, key=1)
+    tags_new = Hash.new()
+    tags.each do |tag, ruleset|
+      ruleset_new = Array.new()
+      ruleset.each do |rule|
+        search = expand_search(rule[key])
+        if search
+          search.each do |host|
+            rule_new = rule.dup
+            rule_new[key] = host
+            ruleset_new = ruleset_new + [rule_new]
+          end
+        else
+          ruleset_new = ruleset_new + [rule]
+        end
+      end
+      tags_new[tag] = ruleset_new
+    end
+    return tags_new
+  end
 
 end
