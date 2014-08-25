@@ -25,7 +25,13 @@ module SearchesLib
       return cidrs
     end
 
-    nodes = search(:node, search)
+    begin
+      nodes = search(:node, search)
+    rescue StandardError => e
+      Chef::Log.error("Error on search '#{search}'")
+      raise e
+    end
+
     nodes.each do |n|
       cidrs.push "#{n["ipaddress"]}/32"
     end

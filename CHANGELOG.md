@@ -2,6 +2,9 @@
 
 This file is used to list changes made in each version of CsFirewall.
 
+## 0.9.10
+* Log the failing search
+
 ## 0.9.9
 * Expand search results to separate rules
 * Log marked rules when exceeding maxdelete
