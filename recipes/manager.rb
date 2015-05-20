@@ -152,6 +152,7 @@ nodes.each do |n|
         # Expand protocol
         fw[1].split(/,/).each do |protocol|
           # Check for a firewall rule
+
           fwrules.each do |fwrule|
             #Chef::Log.info(fwrule)
             if ( ( not found ) &&
@@ -170,6 +171,7 @@ nodes.each do |n|
               end
             end
           end #fwrules
+
           if ( not found ) then
             if ( fw[2] =~ /127\.0\.0\.1\/32/ ) then
               Chef::Log.warn("CIDR block contains 127.0.0.1/32, likely cause: failed search, not creating rule")
@@ -428,8 +430,8 @@ nodes.each do |n|
                 if ( ( not found ) &&
                     aclsoll[1] == acl["cidrlist"] &&
                     protocol == acl["protocol"] &&
-                    ( aclsoll[3] == acl["startport"] || aclsoll[3].to_i == acl["icmptype"] ) &&
-                    ( aclsoll[4] == acl["endport"]   || aclsoll[4].to_i == acl["icmpcode"] ) &&
+                    ( aclsoll[3].to_i == acl["startport"].to_i || aclsoll[3].to_i == acl["icmptype"] ) &&
+                    ( aclsoll[4].to_i == acl["endport"].to_i   || aclsoll[4].to_i == acl["icmpcode"] ) &&
                     traffictype == acl["traffictype"]
                    ) then
                   found = true
@@ -742,6 +744,7 @@ if ( node["cloudstack"]["firewall"]["cleanup"] == true || node["cloudstack"]["fi
 else
   Chef::Log.info("Not deleting acl rules, cleanup is disabled")
 end
+
 trash.each do |acl|
   if ( acl["protocol"] == "icmp" ) then
     Chef::Log.info("#{actiontext} acl on network #{acl[:nwname]}: #{acl["cidrlist"]} #{acl["protocol"]} #{acl["icmptype"]}/#{acl["icmpcode"]} #{acl["traffictype"]} (id: #{acl["id"]})")
